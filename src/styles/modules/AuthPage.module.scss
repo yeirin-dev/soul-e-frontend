@@ -1,0 +1,92 @@
+@use '../index' as *;
+
+.authSection {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1;
+  gap: 1.5rem;
+}
+
+// 소울이 캐릭터 컨테이너
+.characterContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem 0;
+  animation: fadeInDown 0.8s ease-out;
+}
+
+.soulE {
+  animation: float 3s ease-in-out infinite;
+  filter: drop-shadow(0 8px 16px rgba(255, 166, 0, 0.2));
+  transition: transform 0.3s ease;
+
+  &:hover {
+    transform: scale(1.05);
+  }
+}
+
+// 폼 컨테이너
+.formContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  animation: fadeInUp 0.6s ease-out 0.2s both;
+}
+
+// 애니메이션 키프레임
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// 모바일 대응
+@include screen(mobile) {
+  .authSection {
+    gap: 1rem;
+  }
+
+  .characterContainer {
+    padding: 0.25rem 0;
+  }
+
+  .soulE {
+    transform: scale(0.7);
+
+    &:hover {
+      transform: scale(0.75);
+    }
+  }
+
+  .formContainer {
+    gap: 1rem;
+  }
+}

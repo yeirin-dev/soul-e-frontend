@@ -1,0 +1,396 @@
+@use '../index' as *;
+
+// 전체 컨테이너 - PC 전체 화면
+.container {
+  min-height: 100vh;
+  background: linear-gradient(180deg, $main400 0%, #fffbf0 100%);
+  display: flex;
+  flex-direction: column;
+}
+
+// 헤더
+.header {
+  background: white;
+  padding: 1.5rem 3rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+
+  .headerTop {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+
+  h1 {
+    font-size: 2rem;
+    color: $gray700;
+    margin: 0;
+    font-weight: 700;
+  }
+
+  .logoutButton {
+    background: white;
+    border: 2px solid $gray300;
+    padding: 0.75rem 1.5rem;
+    border-radius: 24px;
+    cursor: pointer;
+    color: $gray600;
+    font-size: 1.1rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+
+    &:hover {
+      border-color: $main100;
+      color: $main100;
+      background: $main400;
+    }
+  }
+
+  .teacherInfo {
+    color: $gray500;
+    margin: 0;
+    font-size: 1.1rem;
+  }
+}
+
+// 에러 배너
+.errorBanner {
+  background: #fef2f2;
+  color: #dc2626;
+  padding: 1rem 3rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.1rem;
+
+  button {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #dc2626;
+    padding: 0;
+    line-height: 1;
+
+    &:hover {
+      opacity: 0.7;
+    }
+  }
+}
+
+// 메인 컨텐츠 - PC 최적화
+.mainContent {
+  flex: 1;
+  display: flex;
+  padding: 3rem 4rem;
+  gap: 4rem;
+  max-width: 1600px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+// 소울이 캐릭터 섹션 - 왼쪽 고정
+.characterSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 2rem;
+  flex-shrink: 0;
+  position: sticky;
+  top: 3rem;
+  height: fit-content;
+}
+
+.soulE {
+  animation: float 3s ease-in-out infinite;
+  filter: drop-shadow(0 6px 12px rgba(255, 166, 0, 0.2));
+}
+
+.greeting {
+  margin-top: 1.5rem;
+  font-size: 1.5rem;
+  color: $gray700;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.6;
+
+  span {
+    color: $main100;
+  }
+}
+
+// 리스트 컨테이너
+.listContainer {
+  flex: 1;
+  min-width: 0;
+}
+
+// 로딩/빈 상태
+.loadingState,
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  color: $gray600;
+  text-align: center;
+  gap: 1.5rem;
+  font-size: 1.25rem;
+}
+
+.spinner {
+  width: 60px;
+  height: 60px;
+  border: 4px solid $main400;
+  border-top-color: $main100;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.smallSpinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.refreshButton {
+  background: $main100;
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 28px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1.1rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(255, 166, 0, 0.25);
+
+  &:hover {
+    background: #e69500;
+    transform: translateY(-2px);
+  }
+}
+
+// 요약 정보
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  font-size: 1.15rem;
+  color: $gray600;
+
+  .eligible {
+    color: $main100;
+    font-weight: 600;
+  }
+}
+
+// 그리드 - PC 최적화 (더 큰 카드)
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+
+// 카드 - 동글동글 (큰 사이즈)
+.card {
+  background: white;
+  border: 2px solid transparent;
+  border-radius: 24px;
+  padding: 2rem 1.5rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+
+  &:hover:not(:disabled) {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(255, 166, 0, 0.15);
+    border-color: $main200;
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(-2px);
+  }
+
+  &.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: #fafafa;
+
+    &:hover {
+      transform: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      border-color: transparent;
+    }
+  }
+
+  &.selecting {
+    pointer-events: none;
+  }
+}
+
+.cardOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 166, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 22px;
+}
+
+// 아바타 (큰 사이즈)
+.avatar {
+  width: 88px;
+  height: 88px;
+  background: linear-gradient(135deg, $main400, #fff8e8);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.75rem;
+  margin-bottom: 1rem;
+  transition: transform 0.25s ease;
+}
+
+.card:hover:not(:disabled) .avatar {
+  transform: scale(1.08);
+}
+
+// 정보 텍스트 (큰 사이즈)
+.info {
+  h3 {
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: $gray700;
+    margin: 0 0 0.35rem 0;
+  }
+
+  p {
+    color: $gray500;
+    font-size: 1.1rem;
+    margin: 0;
+  }
+}
+
+// 뱃지
+.badge {
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.35rem 1rem;
+  background-color: #f5f5f5;
+  color: $gray500;
+  font-size: 0.9rem;
+  border-radius: 14px;
+  font-weight: 500;
+}
+
+// 태블릿
+@media (max-width: 1024px) {
+  .mainContent {
+    flex-direction: column;
+    padding: 2rem;
+    gap: 2rem;
+  }
+
+  .characterSection {
+    position: static;
+    padding-top: 0;
+  }
+
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}
+
+// 모바일
+@media (max-width: 640px) {
+  .header {
+    padding: 1.25rem 1.5rem;
+
+    h1 {
+      font-size: 1.5rem;
+    }
+
+    .logoutButton {
+      padding: 0.6rem 1.25rem;
+      font-size: 1rem;
+    }
+
+    .teacherInfo {
+      font-size: 1rem;
+    }
+  }
+
+  .mainContent {
+    padding: 1.5rem 1rem;
+  }
+
+  .soulE {
+    transform: scale(0.85);
+  }
+
+  .greeting {
+    font-size: 1.25rem;
+  }
+
+  .summary {
+    font-size: 1.05rem;
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .card {
+    padding: 1.5rem 1rem;
+  }
+
+  .avatar {
+    width: 72px;
+    height: 72px;
+    font-size: 2.25rem;
+  }
+
+  .info {
+    h3 {
+      font-size: 1.2rem;
+    }
+
+    p {
+      font-size: 1rem;
+    }
+  }
+
+  .badge {
+    font-size: 0.85rem;
+  }
+}

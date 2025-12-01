@@ -1,0 +1,539 @@
+@use '../index' as *;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #f5f5f5;
+}
+
+.header {
+  background: white;
+  padding: 1.25rem 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+  gap: 1.25rem;
+
+  .backButton {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    cursor: pointer;
+    padding: 0.5rem 0.75rem;
+    color: $gray600;
+    transition: all 0.2s;
+    border-radius: 12px;
+
+    &:hover {
+      color: $main100;
+      background: $main400;
+    }
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    color: $gray700;
+    font-weight: bold;
+    flex: 1;
+  }
+
+  .childName {
+    font-size: 1.1rem;
+    background: $main400;
+    color: #c77800;
+    padding: 0.6rem 1.2rem;
+    border-radius: 24px;
+    font-weight: 600;
+  }
+}
+
+// 세션 선택 드롭다운
+.sessionSelector {
+  position: relative;
+}
+
+.sessionButton {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: white;
+  border: 2px solid $gray300;
+  padding: 0.7rem 1.25rem;
+  border-radius: 24px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: $gray600;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: $main100;
+    color: $main100;
+  }
+
+  .dropdownIcon {
+    font-size: 0.85rem;
+    color: $gray400;
+  }
+}
+
+.sessionDropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 320px;
+  max-height: 450px;
+  overflow-y: auto;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  animation: slideDown 0.2s ease-out;
+}
+
+.sessionItem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 1rem 1.25rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+
+  &:hover {
+    background: $main400;
+  }
+
+  &.active {
+    background: $main400;
+    border-left: 4px solid $main100;
+  }
+
+  &.newChat {
+    color: $main100;
+    font-weight: 600;
+    font-size: 1.1rem;
+    border-bottom: 1px solid $gray200;
+  }
+}
+
+.sessionPreview {
+  font-size: 1.05rem;
+  color: $gray700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.sessionMeta {
+  font-size: 0.9rem;
+  color: $gray400;
+  margin-top: 0.35rem;
+}
+
+.sessionDivider {
+  padding: 0.6rem 1.25rem;
+  font-size: 0.85rem;
+  color: $gray400;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sessionLoading,
+.sessionEmpty {
+  padding: 2rem 1.25rem;
+  text-align: center;
+  color: $gray500;
+  font-size: 1.05rem;
+}
+
+.errorBanner {
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 1rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.1rem;
+  animation: slideDown 0.3s ease-out;
+
+  button {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #dc2626;
+    padding: 0;
+    line-height: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.chatWindow {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2.5rem 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+
+  // 배경 그라데이션 (스크롤 시 상단 페이드)
+  &::before {
+    content: '';
+    position: sticky;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2rem;
+    background: linear-gradient(180deg, #f5f5f5 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 1;
+  }
+}
+
+// 히스토리 로딩 상태
+.historyLoading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 1.5rem;
+  color: $gray500;
+
+  p {
+    font-size: 1.25rem;
+    margin: 0;
+  }
+}
+
+// 빈 상태 - 소울이 인사
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 2.5rem;
+  padding: 2rem;
+  animation: fadeIn 0.6s ease-out;
+}
+
+.greetingText {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.greetingTitle {
+  font-size: 2rem;
+  font-weight: bold;
+  color: $gray700;
+  margin: 0;
+}
+
+.greetingDesc {
+  font-size: 1.35rem;
+  color: $gray600;
+  line-height: 1.7;
+  margin: 0;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// 메시지 행
+.messageRow {
+  display: flex;
+  gap: 1rem;
+  max-width: 80%;
+  animation: bounceIn 0.6s cubic-bezier(0.25, 1, 0.9, 1) both;
+
+  &.user {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+  }
+
+  &.assistant {
+    align-self: flex-start;
+  }
+
+  &.system {
+    align-self: center;
+    max-width: 90%;
+  }
+}
+
+// 아바타 컨테이너
+.avatarContainer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+// 메시지 버블
+.bubble {
+  padding: 18px 28px;
+  line-height: 1.7;
+  font-size: 1.25rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  white-space: pre-wrap;
+  word-break: keep-all;
+
+  .user & {
+    background-color: $main100;
+    color: #ffffff;
+    border-radius: 28px 28px 6px 28px;
+    font-weight: 500;
+  }
+
+  .assistant & {
+    background-color: white;
+    color: $gray700;
+    border-radius: 28px 28px 28px 6px;
+    min-height: 56px;
+    display: flex;
+    align-items: center;
+  }
+
+  .system & {
+    background-color: #fef3c7;
+    color: #92400e;
+    border-radius: 20px;
+    font-size: 1.05rem;
+    text-align: center;
+    font-weight: 500;
+  }
+}
+
+.animated {
+  animation: bounceIn 0.6s cubic-bezier(0.25, 1, 0.9, 1) both;
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale3d(0.8, 0.8, 0.8);
+  }
+  60% {
+    transform: scale3d(1.02, 1.02, 1.02);
+  }
+  80% {
+    transform: scale3d(0.98, 0.98, 0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: scale3d(1, 1, 1);
+  }
+}
+
+.messageText {
+  display: block;
+}
+
+// 재시도 버튼
+.retryContainer {
+  padding: 0.75rem 2rem;
+  background: #f7f7f7;
+  text-align: center;
+}
+
+.retryButton {
+  background: #ffa600;
+  color: white;
+  border: none;
+  padding: 0.9rem 1.75rem;
+  border-radius: 28px;
+  cursor: pointer;
+  font-size: 1.15rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(255, 166, 0, 0.3);
+
+  &:hover {
+    background-color: #e69500;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 166, 0, 0.4);
+  }
+}
+
+// 입력 영역
+.inputArea {
+  background: white;
+  padding: 1.25rem 2rem;
+  display: flex;
+  gap: 1.25rem;
+  border-top: 1px solid $gray300;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
+
+  input {
+    flex: 1;
+    padding: 1.1rem 1.5rem;
+    border: 2px solid $gray300;
+    border-radius: 30px;
+    font-size: 1.2rem;
+    color: $gray700;
+    transition: all 0.2s;
+
+    &:focus {
+      outline: none;
+      border-color: $main100;
+      box-shadow: 0 0 0 3px rgba(255, 166, 0, 0.15);
+    }
+
+    &::placeholder {
+      color: $gray400;
+    }
+  }
+
+  button {
+    padding: 0 2rem;
+    background-color: $main100;
+    color: white;
+    border: none;
+    border-radius: 30px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 90px;
+    font-size: 1.2rem;
+    box-shadow: 0 2px 8px rgba(255, 166, 0, 0.3);
+
+    &:disabled {
+      background-color: $gray300;
+      color: $gray500;
+      cursor: default;
+      box-shadow: none;
+    }
+
+    &:hover:not(:disabled) {
+      background-color: #e69500;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(255, 166, 0, 0.4);
+    }
+
+    &:active:not(:disabled) {
+      transform: translateY(0);
+    }
+  }
+}
+
+// 모바일 대응
+@media (max-width: 640px) {
+  .header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 1rem 1.25rem;
+
+    h2 {
+      order: 1;
+      flex: 1;
+      font-size: 1.25rem;
+    }
+
+    .backButton {
+      order: 0;
+      font-size: 1.5rem;
+    }
+
+    .sessionSelector {
+      order: 2;
+    }
+
+    .childName {
+      order: 3;
+      width: 100%;
+      text-align: center;
+      font-size: 1rem;
+    }
+  }
+
+  .sessionButton {
+    padding: 0.5rem 0.9rem;
+    font-size: 0.95rem;
+  }
+
+  .sessionDropdown {
+    width: 280px;
+    right: -20px;
+  }
+
+  .sessionItem {
+    padding: 0.85rem 1rem;
+  }
+
+  .sessionPreview {
+    font-size: 0.95rem;
+  }
+
+  .chatWindow {
+    padding: 1.5rem 1rem;
+    gap: 1.5rem;
+  }
+
+  .messageRow {
+    max-width: 92%;
+  }
+
+  .bubble {
+    padding: 14px 20px;
+    font-size: 1.1rem;
+  }
+
+  .greetingTitle {
+    font-size: 1.5rem;
+  }
+
+  .greetingDesc {
+    font-size: 1.15rem;
+  }
+
+  .inputArea {
+    padding: 1rem 1.25rem;
+    gap: 1rem;
+
+    input {
+      padding: 0.9rem 1.2rem;
+      font-size: 1.1rem;
+    }
+
+    button {
+      padding: 0 1.5rem;
+      font-size: 1.1rem;
+      min-width: 80px;
+    }
+  }
+
+  .retryButton {
+    font-size: 1rem;
+    padding: 0.75rem 1.5rem;
+  }
+}

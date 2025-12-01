@@ -1,0 +1,54 @@
+@use '../styles/index' as *;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.imageWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: float 3s ease-in-out infinite;
+}
+
+.small {
+  .imageWrapper {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+.medium {
+  .imageWrapper {
+    width: 80px;
+    height: 80px;
+  }
+}
+
+.large {
+  .imageWrapper {
+    width: 160px;
+    height: 160px;
+  }
+}
+
+.label {
+  font-size: 0.875rem;
+  color: #666;
+  font-weight: 600;
+  text-align: center;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}

@@ -1,0 +1,40 @@
+@use '../styles/index' as *;
+
+$dotColor: #ffa600;
+
+.loadingStage {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.loader {
+  width: 48px;
+  height: 24px;
+  background: radial-gradient(circle closest-side, $dotColor 90%, transparent) 0% 50%,
+    radial-gradient(circle closest-side, $dotColor 90%, transparent) 50% 50%,
+    radial-gradient(circle closest-side, $dotColor 90%, transparent) 100% 50%;
+  background-size: calc(100% / 3) 10px;
+  background-repeat: no-repeat;
+  animation: dotsLoading 1s infinite linear;
+}
+
+@keyframes dotsLoading {
+  20% {
+    background-position: 0% 0%, 50% 50%, 100% 50%;
+  }
+  40% {
+    background-position: 0% 100%, 50% 0%, 100% 50%;
+  }
+  60% {
+    background-position: 0% 50%, 50% 100%, 100% 0%;
+  }
+  80% {
+    background-position: 0% 50%, 50% 50%, 100% 100%;
+  }
+}
+
+.content {
+  color: #999;
+  font-size: 0.9rem;
+}

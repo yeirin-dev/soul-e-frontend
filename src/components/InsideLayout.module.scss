@@ -1,0 +1,55 @@
+@use '../styles/index' as *;
+
+.insideLayout {
+  @include flex-col {
+    gap: 2rem;
+  }
+  flex: 1 1;
+  padding-top: 1rem;
+  padding-bottom: 32px;
+  overflow: hidden;
+
+  & > h1 {
+    @include tb(48);
+    color: $gray700;
+    white-space: pre-line;
+  }
+
+  &.isMiddle {
+    align-items: center;
+    & > h1 {
+      text-align: center;
+    }
+  }
+
+  &.isIntro {
+    padding-top: 0;
+  }
+
+  &.isTos {
+    padding-bottom: 4rem;
+    & > h1 {
+      padding-left: 64px;
+      padding-right: 64px;
+    }
+  }
+
+  // 모바일 반응형
+  @include screen(mobile) {
+    gap: 1.5rem;
+    padding-top: 0.5rem;
+    padding-bottom: 24px;
+
+    & > h1 {
+      font-size: 1.5rem;
+      line-height: 1.4;
+    }
+
+    &.isTos {
+      & > h1 {
+        padding-left: 0;
+        padding-right: 0;
+      }
+    }
+  }
+}

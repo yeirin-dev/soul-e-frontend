@@ -1,0 +1,56 @@
+@use '../styles/index' as *;
+
+.layoutContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 7rem;
+  min-height: 100vh;
+  height: 100vh;
+  background-color: $main400;
+  padding: 1rem;
+
+  @include screen(tablet) {
+    background-color: $gray200;
+    height: 100dvh;
+    min-height: 100dvh;
+    padding: 0;
+  }
+}
+
+.cardContainer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 768px;
+  max-width: 100%;
+  height: 96%;
+  max-height: 1200px;
+  padding: 48px 64px 32px;
+  border-radius: 2rem;
+  background-color: $gray200;
+  box-shadow: 0px 2px 12px 0px rgba(0, 0, 0, 0.08);
+  transition:
+    width 0.4s ease,
+    height 0.4s ease,
+    max-height 0.4s ease,
+    border-radius 0.4s ease;
+  overflow-x: hidden;
+  overflow-y: auto;
+  @include hiddenScroll;
+
+  // 태블릿
+  @include screen(tablet) {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+    padding: 48px 32px 32px;
+  }
+
+  // 모바일
+  @include screen(mobile) {
+    padding: 32px 20px 24px;
+  }
+}

@@ -1,0 +1,18 @@
+@mixin flex-row {
+  display: flex;
+  align-items: center;
+  @content;
+}
+
+@mixin flex-col {
+  display: flex;
+  flex-direction: column;
+  @content;
+}
+
+@mixin float-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  @content;
+}

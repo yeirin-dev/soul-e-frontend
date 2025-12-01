@@ -1,0 +1,116 @@
+// Authentication Types
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  accessToken: string;
+  refreshToken: string;
+  user: {
+    id: string;
+    email: string;
+    realName: string;
+    role: 'GUARDIAN' | 'INSTITUTION_ADMIN' | 'COUNSELOR' | 'ADMIN';
+  };
+}
+
+export interface TeacherInfo {
+  user_id: string;
+  email: string;
+  real_name: string;
+  guardian_type: string;
+  institution_id: string;
+  institution_type: string;
+  institution_name: string;
+}
+
+export interface ChildInfo {
+  id: string;
+  name: string;
+  birth_date: string;
+  age: number;
+  gender: string;
+  child_type: string;
+  is_eligible: boolean;
+}
+
+export interface ChildListResponse {
+  institution_id: string;
+  institution_name: string;
+  institution_type: string;
+  children: ChildInfo[];
+  total_count: number;
+  eligible_count: number;
+}
+
+export interface ChildSessionResponse {
+  session_token: string;
+  child_id: string;
+  child_name: string;
+  expires_in_minutes: number;
+  message: string;
+}
+
+// Chat Types
+export type MessageRole = 'user' | 'assistant' | 'system';
+
+export interface ChatMessage {
+  id?: string; // Optional for optimistic updates
+  session_id?: string;
+  role: MessageRole;
+  content: string;
+  created_at?: string;
+  is_final?: boolean; // For streaming
+}
+
+export interface ChatResponse {
+  session_id: string;
+  message_id: string;
+  content: string;
+  role: MessageRole;
+  created_at: string;
+}
+
+export interface StreamResponseChunk {
+  session_id: string;
+  content: string;
+  is_final: boolean;
+  message_id?: string;
+}
+
+// Session Types
+export interface SessionInfo {
+  id: string;
+  user_id: string | null;
+  title: string | null;
+  status: 'active' | 'closed' | 'expired';
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MessageResponse {
+  id: string;
+  session_id: string;
+  role: MessageRole;
+  content: string;
+  created_at: string;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface SessionDetailResponse {
+  id: string;
+  user_id: string | null;
+  title: string | null;
+  status: string;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+  messages: MessageResponse[];
+}
+
+// Error Types
+export interface ApiError {
+  detail: string | { loc: (string | number)[]; msg: string; type: string }[];
+}

@@ -1,0 +1,26 @@
+// Neutral Colors (가독성 개선)
+$gray100: #fff;
+$gray200: #f8f8f8;
+$gray300: #e5e5e5;
+$gray400: #a3a3a3;
+$gray500: #737373;
+$gray600: #525252;
+$gray700: #1a1a1a;
+
+// Primary Colors (메인 오렌지)
+$main100: #ffa600;
+$main200: #ffc94d;
+$main300: #ffd97a;
+$main400: #fff5d1;
+
+// Accent Colors
+$sub100: #ff6300;
+$sub200: #5fe39c;
+$sub300: #7f7bff;
+
+// Text Colors (가독성 최적화)
+$text-primary: #1a1a1a;     // 메인 텍스트 (높은 대비)
+$text-secondary: #525252;   // 보조 텍스트
+$text-muted: #737373;       // 비활성 텍스트
+$text-placeholder: #a3a3a3; // placeholder
+$text-inverse: #ffffff;     // 어두운 배경 위 텍스트

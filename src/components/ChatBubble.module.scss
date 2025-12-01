@@ -1,0 +1,92 @@
+@use '../styles/index' as *;
+
+.messageContainer {
+  display: flex;
+  gap: 0.75rem;
+  max-width: 85%;
+  animation: bounceIn 0.6s cubic-bezier(0.25, 1, 0.9, 1) both;
+
+  &.user {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+  }
+
+  &.assistant {
+    align-self: flex-start;
+  }
+
+  &.system {
+    align-self: center;
+    max-width: 90%;
+  }
+}
+
+.avatarSection {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.contentSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bubble {
+  padding: 14px 24px;
+  line-height: 1.6;
+  font-size: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  white-space: pre-wrap;
+
+  .user & {
+    background-color: #ffa600;
+    color: white;
+    border-radius: 24px 24px 4px 24px;
+  }
+
+  .assistant & {
+    background-color: white;
+    color: #333;
+    border-radius: 24px 24px 24px 4px;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+  }
+
+  .system & {
+    background-color: #fef3c7;
+    color: #92400e;
+    border-radius: 16px;
+    font-size: 0.875rem;
+    text-align: center;
+  }
+}
+
+.animated {
+  animation: bounceIn 0.6s cubic-bezier(0.25, 1, 0.9, 1) both;
+}
+
+.text {
+  word-break: keep-all;
+}
+
+// BounceIn keyframe
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale3d(0.8, 0.8, 0.8);
+  }
+  60% {
+    transform: scale3d(1.02, 1.02, 1.02);
+  }
+  80% {
+    transform: scale3d(0.98, 0.98, 0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: scale3d(1, 1, 1);
+  }
+}
