@@ -270,6 +270,20 @@ export default function ChatPage() {
         </button>
         <h2>소울이와 대화하기</h2>
 
+        {/* 검사하기 버튼 */}
+        <button
+          className={styles.assessmentButton}
+          onClick={() => router.push('/assessment')}
+          type="button"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
+            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+            <rect x="9" y="3" width="6" height="4" rx="1" />
+            <path d="M9 12h6M9 16h6" />
+          </svg>
+          검사하기
+        </button>
+
         {/* 세션 선택 드롭다운 */}
         <div className={styles.sessionSelector} ref={sessionListRef}>
           <button

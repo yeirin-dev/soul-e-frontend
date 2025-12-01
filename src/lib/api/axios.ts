@@ -22,17 +22,22 @@ api.interceptors.request.use(
       const childToken = localStorage.getItem('child_session_token');
       const yeirinToken = localStorage.getItem('yeirin_token');
 
-      // Soul-E 채팅 관련 요청은 child session token 사용
-      if (config.url?.includes('/chat') || config.url?.includes('/sessions')) {
+      // Soul-E 채팅/세션 관련 요청은 child session token 사용
+      // assessment API는 session_id 기반으로 작동하므로 토큰 불필요 (인증 없이 접근 가능)
+      const isAssessmentApi = config.url?.includes('/assessment');
+      const isChatOrSession = config.url?.includes('/chat') || config.url?.includes('/sessions');
+
+      if (!isAssessmentApi && isChatOrSession) {
         if (childToken) {
           config.headers.Authorization = `Bearer ${childToken}`;
         }
-      } else {
-        // 나머지 요청은 yeirin token 사용
+      } else if (!isAssessmentApi) {
+        // 나머지 요청은 yeirin token 사용 (assessment 제외)
         if (yeirinToken) {
           config.headers.Authorization = `Bearer ${yeirinToken}`;
         }
       }
+      // assessment API는 토큰 없이 요청
     }
     return config;
   },
@@ -74,13 +79,13 @@ api.interceptors.response.use(
         return Promise.reject({ message: errorMessage || '이메일 또는 비밀번호가 올바르지 않습니다.', status: 401 });
       }
 
-      // chat/sessions 요청이면 child session token 문제만 처리
-      if (url.includes('/chat') || url.includes('/sessions')) {
+      // chat/sessions 요청이면 child session token 문제 처리 (assessment 제외)
+      if ((url.includes('/chat') || url.includes('/sessions')) && !url.includes('/assessment')) {
         if (typeof window !== 'undefined') {
           localStorage.removeItem('child_session_token');
           localStorage.removeItem('child_session_expires_at');
         }
-        return Promise.reject({ message: '채팅 세션이 만료되었습니다. 아동을 다시 선택해주세요.', status: 401, shouldRedirectToChildren: true });
+        return Promise.reject({ message: '세션이 만료되었습니다. 아동을 다시 선택해주세요.', status: 401, shouldRedirectToChildren: true });
       }
 
       // 그 외 요청은 토큰 삭제 없이 에러만 반환

@@ -238,3 +238,6 @@ export const sessionApi = {
     await api.post(`/api/v1/sessions/${sessionId}/close`);
   },
 };
+
+// Assessment API re-export
+export { assessmentApi } from './assessment';

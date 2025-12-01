@@ -50,6 +50,36 @@
   }
 }
 
+// 검사하기 버튼
+.assessmentButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, $sub200, #4cd48b);
+  border: none;
+  padding: 0.7rem 1.25rem;
+  border-radius: 24px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(56, 189, 129, 0.3);
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(56, 189, 129, 0.4);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
 // 세션 선택 드롭다운
 .sessionSelector {
   position: relative;
@@ -464,12 +494,18 @@
       font-size: 1.5rem;
     }
 
-    .sessionSelector {
+    .assessmentButton {
       order: 2;
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+    }
+
+    .sessionSelector {
+      order: 3;
     }
 
     .childName {
-      order: 3;
+      order: 4;
       width: 100%;
       text-align: center;
       font-size: 1rem;

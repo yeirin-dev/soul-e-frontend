@@ -1,0 +1,737 @@
+@use '../color' as *;
+@use '../typography' as *;
+@use '../layout' as *;
+@use '../animation' as *;
+
+// Assessment Page Container
+.assessmentPage {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: linear-gradient(180deg, $main400 0%, $gray100 100%);
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+
+  @media (max-width: 480px) {
+    padding: 16px;
+  }
+}
+
+// Header with progress
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+
+  .backButton {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    color: $text-secondary;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.05);
+      color: $text-primary;
+    }
+
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  .progressInfo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .progressText {
+      font-size: 14px;
+      color: $text-secondary;
+      font-weight: 500;
+    }
+
+    .progressBar {
+      width: 120px;
+      height: 8px;
+      background: $gray300;
+      border-radius: 4px;
+      overflow: hidden;
+
+      .progressFill {
+        height: 100%;
+        background: linear-gradient(90deg, $main100, $main200);
+        border-radius: 4px;
+        transition: width 0.3s ease;
+      }
+    }
+  }
+}
+
+// Intro Section (Before starting)
+.introSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  animation: fadeIn 0.5s ease;
+  position: relative;
+
+  .backButtonFloat {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: $gray100;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+    svg {
+      width: 24px;
+      height: 24px;
+      color: $text-secondary;
+    }
+
+    &:hover {
+      background: $gray200;
+      transform: scale(1.05);
+
+      svg {
+        color: $text-primary;
+      }
+    }
+  }
+
+  .characterWrapper {
+    margin-bottom: 32px;
+  }
+
+  .introContent {
+    max-width: 400px;
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: $text-primary;
+      margin-bottom: 16px;
+    }
+
+    p {
+      font-size: 16px;
+      color: $text-secondary;
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+
+    .highlight {
+      color: $main100;
+      font-weight: 600;
+    }
+  }
+
+  .infoCard {
+    background: $gray100;
+    border-radius: 16px;
+    padding: 24px;
+    margin: 32px 0;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    width: 100%;
+    max-width: 400px;
+
+    .infoItem {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+
+      &:not(:last-child) {
+        border-bottom: 1px solid $gray300;
+      }
+
+      .icon {
+        width: 40px;
+        height: 40px;
+        background: $main400;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        svg {
+          width: 20px;
+          height: 20px;
+          color: $main100;
+        }
+      }
+
+      .infoText {
+        text-align: left;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+
+        .label {
+          font-size: 12px;
+          color: $text-muted;
+          line-height: 1;
+        }
+
+        .value {
+          font-size: 16px;
+          font-weight: 600;
+          color: $text-primary;
+          line-height: 1.2;
+        }
+      }
+    }
+  }
+
+  .startButton {
+    width: 100%;
+    max-width: 320px;
+    padding: 16px 32px;
+    background: linear-gradient(135deg, $main100, $sub100);
+    color: white;
+    font-size: 18px;
+    font-weight: 700;
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 16px rgba($main100, 0.3);
+
+    &:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba($main100, 0.4);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  // 개발자 테스트용 버튼
+  .devTestButton {
+    width: 100%;
+    max-width: 320px;
+    padding: 12px 24px;
+    margin-top: 12px;
+    background: $gray200;
+    color: $text-secondary;
+    font-size: 14px;
+    font-weight: 600;
+    border: 2px dashed $gray400;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover:not(:disabled) {
+      background: $gray300;
+      border-color: $gray500;
+      color: $text-primary;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+}
+
+// Question Section
+.questionSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-width: 600px;
+  width: 100%;
+  margin: 0 auto;
+  animation: slideUp 0.3s ease;
+}
+
+.questionCard {
+  background: $gray100;
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  margin-bottom: 24px;
+
+  @media (max-width: 480px) {
+    padding: 24px 20px;
+    border-radius: 20px;
+  }
+
+  .questionNumber {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, $main100, $main200);
+    color: white;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 6px 16px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+  }
+
+  .questionText {
+    font-size: 20px;
+    font-weight: 600;
+    color: $text-primary;
+    line-height: 1.5;
+    word-break: keep-all;
+
+    @media (max-width: 480px) {
+      font-size: 18px;
+    }
+  }
+}
+
+// Choice Options
+.choicesContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.choiceButton {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 20px 24px;
+  background: $gray100;
+  border: 2px solid $gray300;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+
+  @media (max-width: 480px) {
+    padding: 16px 20px;
+  }
+
+  &:hover:not(.selected),
+  &.focused:not(.selected) {
+    border-color: $main200;
+    background: $main400;
+    transform: translateX(4px);
+
+    .choiceNumber {
+      background: $main200;
+      color: white;
+    }
+  }
+
+  &.focused {
+    box-shadow: 0 0 0 3px rgba($main100, 0.2);
+  }
+
+  &.selected {
+    border-color: $main100;
+    background: linear-gradient(135deg, rgba($main100, 0.1), rgba($main200, 0.1));
+
+    .choiceNumber {
+      background: $main100;
+      color: white;
+    }
+
+    .choiceIndicator {
+      background: $main100;
+      border-color: $main100;
+
+      &::after {
+        content: '';
+        display: block;
+        width: 8px;
+        height: 8px;
+        background: white;
+        border-radius: 50%;
+      }
+    }
+  }
+
+  .choiceNumber {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: $gray300;
+    color: $text-secondary;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+  }
+
+  .choiceIndicator {
+    width: 24px;
+    height: 24px;
+    border: 2px solid $gray400;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+  }
+
+  .choiceLabel {
+    font-size: 16px;
+    font-weight: 500;
+    color: $text-primary;
+    flex: 1;
+  }
+}
+
+// 키보드 단축키 안내
+.keyboardHint {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba($gray300, 0.5);
+  border-radius: 12px;
+
+  span {
+    font-size: 12px;
+    color: $text-muted;
+    padding: 4px 10px;
+    background: $gray100;
+    border-radius: 6px;
+    font-weight: 500;
+  }
+
+  @media (max-width: 480px) {
+    gap: 8px;
+    flex-wrap: wrap;
+
+    span {
+      font-size: 11px;
+      padding: 3px 8px;
+    }
+  }
+}
+
+// Navigation Buttons
+.navigationButtons {
+  display: flex;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 24px;
+
+  button {
+    flex: 1;
+    padding: 16px 24px;
+    border-radius: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  .prevButton {
+    background: $gray200;
+    border: 1px solid $gray300;
+    color: $text-secondary;
+
+    &:hover:not(:disabled) {
+      background: $gray300;
+    }
+  }
+
+  .nextButton {
+    background: linear-gradient(135deg, $main100, $main200);
+    border: none;
+    color: white;
+
+    &:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba($main100, 0.3);
+    }
+  }
+
+  .submitButton {
+    background: linear-gradient(135deg, $sub200, #4cd48b);
+    border: none;
+    color: white;
+
+    &:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba($sub200, 0.3);
+    }
+  }
+}
+
+// Result Section
+.resultSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  animation: fadeIn 0.5s ease;
+
+  .resultCard {
+    background: $gray100;
+    border-radius: 24px;
+    padding: 40px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+    max-width: 400px;
+    width: 100%;
+
+    @media (max-width: 480px) {
+      padding: 32px 24px;
+    }
+  }
+
+  .resultIcon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 24px;
+
+    &.success {
+      background: linear-gradient(135deg, $sub200, #4cd48b);
+    }
+
+    &.error {
+      background: linear-gradient(135deg, $sub100, #ff8533);
+    }
+
+    svg {
+      width: 40px;
+      height: 40px;
+      color: white;
+    }
+  }
+
+  h2 {
+    font-size: 24px;
+    font-weight: 700;
+    color: $text-primary;
+    margin-bottom: 12px;
+  }
+
+  .resultMessage {
+    font-size: 18px;
+    color: $text-primary;
+    line-height: 1.6;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+
+  .resultSubMessage {
+    font-size: 15px;
+    color: $text-secondary;
+    margin-bottom: 24px;
+  }
+
+  .characterWrapper {
+    margin-bottom: 20px;
+  }
+
+  .reportLink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: $main100;
+    font-weight: 600;
+    text-decoration: none;
+    padding: 14px 28px;
+    background: $main400;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    min-width: 180px;
+
+    svg {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    &:hover {
+      background: $main300;
+      transform: translateY(-1px);
+    }
+  }
+
+  .resultButtons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 24px;
+    width: 100%;
+
+    button {
+      width: 100%;
+      padding: 16px 24px;
+      border-radius: 16px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .primaryButton {
+      background: linear-gradient(135deg, $main100, $main200);
+      border: none;
+      color: white;
+
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba($main100, 0.3);
+      }
+    }
+
+    .secondaryButton {
+      background: $gray200;
+      border: 1px solid $gray300;
+      color: $text-secondary;
+
+      &:hover {
+        background: $gray300;
+      }
+    }
+  }
+}
+
+// Loading State
+.loadingSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+
+  .loadingText {
+    font-size: 18px;
+    font-weight: 600;
+    color: $text-secondary;
+  }
+
+  .loadingSubtext {
+    font-size: 14px;
+    color: $text-muted;
+  }
+}
+
+// Error State
+.errorBanner {
+  background: rgba($sub100, 0.1);
+  border: 1px solid rgba($sub100, 0.3);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: slideDown 0.3s ease;
+
+  svg {
+    width: 24px;
+    height: 24px;
+    color: $sub100;
+    flex-shrink: 0;
+  }
+
+  .errorText {
+    font-size: 14px;
+    color: $sub100;
+    font-weight: 500;
+  }
+}
+
+// Animations
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Submitting overlay
+.submittingOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+
+  .submittingContent {
+    text-align: center;
+
+    h3 {
+      font-size: 20px;
+      font-weight: 600;
+      color: $text-primary;
+      margin-top: 24px;
+      margin-bottom: 8px;
+    }
+
+    p {
+      font-size: 14px;
+      color: $text-muted;
+    }
+  }
+}
