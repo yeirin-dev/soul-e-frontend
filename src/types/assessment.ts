@@ -90,3 +90,23 @@ export interface AssessmentState {
   error: string | null;
   result: AssessmentResult | null;
 }
+
+// Child assessment status (from backend)
+export interface ChildAssessmentStatus {
+  child_id: string;
+  can_start_new: boolean;
+  has_in_progress: boolean;
+  has_completed: boolean;
+  in_progress_session: AssessmentSession | null;
+  latest_completed_session: AssessmentSession | null;
+  total_completed_count: number;
+  message: string;
+}
+
+// Session answers (for resuming assessment)
+export interface SessionAnswers {
+  session_id: string;
+  answers: Record<number, number>;
+  answered_count: number;
+  last_answered_question: number | null;
+}

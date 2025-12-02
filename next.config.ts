@@ -3,10 +3,19 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   async rewrites() {
     return [
+      // ============================================
+      // Soul-E AI Backend (FastAPI) - Port 8000
+      // LLM 채팅, 세션 관리, 심리평가 등
+      // ============================================
       {
-        source: '/api/v1/:path*',
+        source: '/soul-api/:path*',
         destination: 'http://localhost:8000/api/v1/:path*',
       },
+
+      // ============================================
+      // Yeirin Main Backend (NestJS) - Port 3000
+      // 인증, 사용자 관리, 아동 정보 등
+      // ============================================
       {
         source: '/yeirin-api/:path*',
         destination: 'http://localhost:3000/:path*',

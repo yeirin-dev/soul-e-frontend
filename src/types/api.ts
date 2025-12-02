@@ -32,7 +32,7 @@ export interface ChildInfo {
   age: number;
   gender: string;
   child_type: string;
-  is_eligible: boolean;
+  is_eligible: boolean; // 9-15세 대상 여부
 }
 
 export interface ChildListResponse {

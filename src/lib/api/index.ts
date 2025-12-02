@@ -1,31 +1,106 @@
-import { type TeacherInfo, type ChildListResponse, type ChildSessionResponse, type LoginRequest, type LoginResponse, type SessionInfo, type SessionDetailResponse } from '@/types/api';
-import api from './axios';
+/**
+ * Soul-E API Module
+ *
+ * 서버 구성:
+ * - Yeirin API (Port 3000): 로그인/회원가입
+ * - Soul API (Port 8000): 사용자정보, 아동관리, LLM 채팅, 세션, 심리평가
+ *
+ * 인증 흐름:
+ * 1. 로그인 → Yeirin (3000) → yeirin_token
+ * 2. 사용자정보/아동목록 → Soul-E (8000) with yeirin_token
+ * 3. 아동선택 → Soul-E (8000) → child_session_token
+ * 4. 채팅 → Soul-E (8000) with child_session_token
+ */
+
+import {
+  yeirinClient,
+  soulClient,
+  TokenManager,
+  SOUL_API_BASE,
+} from './clients';
+
+import {
+  type TeacherInfo,
+  type ChildInfo,
+  type ChildListResponse,
+  type ChildSessionResponse,
+  type LoginRequest,
+  type LoginResponse,
+  type SessionInfo,
+  type SessionDetailResponse,
+} from '@/types/api';
+
+// =============================================================================
+// Auth API
+// - 로그인: Yeirin Backend (Port 3000)
+// - 사용자정보/아동목록/아동선택: Soul-E Backend (Port 8000)
+// =============================================================================
 
 export const authApi = {
-  login: async (credentials: LoginRequest) => {
-    // yeirin backend: /api/v1/auth/login on port 3000
-    const response = await api.post<LoginResponse>('/yeirin-api/api/v1/auth/login', credentials);
+  /**
+   * 교사/보호자 로그인
+   * Yeirin Backend (3000) - 성공 시 yeirin_token 발급
+   */
+  login: async (credentials: LoginRequest): Promise<LoginResponse> => {
+    const response = await yeirinClient.post<LoginResponse>('/api/v1/auth/login', credentials);
+
+    // 토큰 저장
+    if (response.data.accessToken) {
+      TokenManager.setYeirinToken(response.data.accessToken);
+    }
+
     return response.data;
   },
 
-  getMe: async () => {
-    // /api/v1 -> http://localhost:8000/api/v1
-    const response = await api.get<TeacherInfo>('/api/v1/auth/me');
+  /**
+   * 현재 로그인한 사용자(교사/보호자) 정보 조회
+   * Soul-E Backend (8000) - yeirin_token 사용
+   */
+  getMe: async (): Promise<TeacherInfo> => {
+    const response = await soulClient.get<TeacherInfo>('/auth/me');
     return response.data;
   },
 
-  getChildren: async () => {
-    const response = await api.get<ChildListResponse>('/api/v1/auth/children');
+  /**
+   * 담당 아동 목록 조회
+   * Soul-E Backend (8000) - yeirin_token 사용
+   * ChildListResponse wrapper 반환
+   */
+  getChildren: async (): Promise<ChildListResponse> => {
+    const response = await soulClient.get<ChildListResponse>('/auth/children');
     return response.data;
   },
 
-  selectChild: async (childId: string) => {
-    const response = await api.post<ChildSessionResponse>('/api/v1/auth/select-child', {
+  /**
+   * 아동 선택 (채팅 세션용 토큰 발급)
+   * Soul-E Backend (8000) - 성공 시 child_session_token 발급
+   */
+  selectChild: async (childId: string): Promise<ChildSessionResponse> => {
+    const response = await soulClient.post<ChildSessionResponse>('/auth/select-child', {
       child_id: childId,
     });
+
+    // 아동 세션 토큰 및 child_id 저장 (Silent Refresh용)
+    if (response.data.session_token) {
+      const expiresAt = new Date(Date.now() + response.data.expires_in_minutes * 60 * 1000).toISOString();
+      TokenManager.setChildToken(response.data.session_token, expiresAt);
+      TokenManager.setSelectedChildId(response.data.child_id);
+    }
+
     return response.data;
   },
+
+  /**
+   * 로그아웃
+   */
+  logout: (): void => {
+    TokenManager.clearAll();
+  },
 };
+
+// =============================================================================
+// Chat API (Soul Backend - Port 8000)
+// =============================================================================
 
 export interface StreamCallbacks {
   onChunk?: (accumulated: string) => void;
@@ -34,19 +109,20 @@ export interface StreamCallbacks {
 }
 
 export const chatApi = {
+  /**
+   * 스트리밍 채팅 메시지 전송
+   * SSE(Server-Sent Events)를 통한 실시간 응답
+   */
   sendMessageStream: async (
     message: string,
     sessionId?: string,
     onChunk?: (accumulated: string) => void,
-    onComplete?: (data: any) => void,
+    onComplete?: (data: { session_id: string; message_id?: string; content: string }) => void,
     onError?: (error: { message: string; status?: number; shouldRetry?: boolean }) => void
-  ) => {
-    let childToken = '';
-    if (typeof window !== 'undefined') {
-      childToken = localStorage.getItem('child_session_token') || '';
-    }
+  ): Promise<string> => {
+    const childToken = TokenManager.getChildToken();
 
-    // 토큰 없으면 에러
+    // 토큰 검증
     if (!childToken) {
       const error = { message: '세션이 만료되었습니다. 아동을 다시 선택해주세요.', status: 401, shouldRetry: false };
       if (onError) onError(error);
@@ -55,7 +131,7 @@ export const chatApi = {
 
     let response: Response;
     try {
-      response = await fetch('/api/v1/chat/stream', {
+      response = await fetch(`${SOUL_API_BASE}/chat/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -77,10 +153,7 @@ export const chatApi = {
       if (response.status === 401) {
         errorMessage = '세션이 만료되었습니다. 아동을 다시 선택해주세요.';
         shouldRetry = false;
-        // 세션 토큰 제거
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('child_session_token');
-        }
+        TokenManager.removeChildToken();
       } else if (response.status === 403) {
         errorMessage = '접근 권한이 없습니다.';
         shouldRetry = false;
@@ -88,11 +161,10 @@ export const chatApi = {
         errorMessage = '서버에 문제가 발생했습니다. 잠시 후 다시 시도해주세요.';
       }
 
-      // 응답 본문에서 상세 에러 추출 시도
       try {
         const errorData = await response.json();
-        if (errorData.detail) {
-          errorMessage = typeof errorData.detail === 'string' ? errorData.detail : errorMessage;
+        if (errorData.detail && typeof errorData.detail === 'string') {
+          errorMessage = errorData.detail;
         }
       } catch {
         // JSON 파싱 실패 시 기본 메시지 사용
@@ -109,10 +181,11 @@ export const chatApi = {
       throw error;
     }
 
+    // SSE 스트림 처리
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let fullContent = '';
-    let buffer = ''; // 불완전한 청크 처리용 버퍼
+    let buffer = '';
 
     try {
       while (true) {
@@ -121,17 +194,13 @@ export const chatApi = {
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n\n');
-
-        // 마지막 줄은 불완전할 수 있으므로 버퍼에 보관
         buffer = lines.pop() || '';
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             const dataStr = line.slice(6).trim();
 
-            if (dataStr === '[DONE]') {
-              continue;
-            }
+            if (dataStr === '[DONE]') continue;
 
             try {
               const data = JSON.parse(dataStr);
@@ -146,7 +215,7 @@ export const chatApi = {
                   content: fullContent,
                 });
               }
-            } catch (e) {
+            } catch {
               console.warn('SSE 데이터 파싱 실패:', dataStr);
             }
           }
@@ -171,12 +240,11 @@ export const chatApi = {
               });
             }
           } catch {
-            // 마지막 버퍼 파싱 실패 무시
+            // 파싱 실패 무시
           }
         }
       }
-    } catch (streamError) {
-      // 스트리밍 중 연결 끊김
+    } catch {
       const error = { message: '연결이 끊겼습니다. 다시 시도해주세요.', shouldRetry: true };
       if (onError) onError(error);
       throw error;
@@ -185,14 +253,13 @@ export const chatApi = {
     return fullContent;
   },
 
-  // 비스트리밍 버전 (폴백용)
+  /**
+   * 비스트리밍 채팅 (폴백용)
+   */
   sendMessage: async (message: string, sessionId?: string) => {
-    let childToken = '';
-    if (typeof window !== 'undefined') {
-      childToken = localStorage.getItem('child_session_token') || '';
-    }
+    const childToken = TokenManager.getChildToken();
 
-    const response = await fetch('/api/v1/chat', {
+    const response = await fetch(`${SOUL_API_BASE}/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -213,11 +280,16 @@ export const chatApi = {
   },
 };
 
-// Session API
+// =============================================================================
+// Session API (Soul Backend - Port 8000)
+// =============================================================================
+
 export const sessionApi = {
-  // 세션 목록 조회 (아동 ID 필요)
+  /**
+   * 세션 목록 조회
+   */
   getSessions: async (userId: string): Promise<SessionInfo[]> => {
-    const response = await api.get<SessionInfo[]>('/api/v1/sessions', {
+    const response = await soulClient.get<SessionInfo[]>('/sessions', {
       params: {
         user_id: userId,
         include_closed: false,
@@ -227,17 +299,30 @@ export const sessionApi = {
     return response.data || [];
   },
 
-  // 세션 상세 조회 (메시지 히스토리 포함)
+  /**
+   * 세션 상세 조회 (메시지 히스토리 포함)
+   */
   getSession: async (sessionId: string): Promise<SessionDetailResponse> => {
-    const response = await api.get<SessionDetailResponse>(`/api/v1/sessions/${sessionId}`);
+    const response = await soulClient.get<SessionDetailResponse>(`/sessions/${sessionId}`);
     return response.data;
   },
 
-  // 세션 종료
+  /**
+   * 세션 종료
+   */
   closeSession: async (sessionId: string): Promise<void> => {
-    await api.post(`/api/v1/sessions/${sessionId}/close`);
+    await soulClient.post(`/sessions/${sessionId}/close`);
   },
 };
 
-// Assessment API re-export
+// =============================================================================
+// Assessment API (Soul Backend - Port 8000, 인증 불필요)
+// =============================================================================
+
 export { assessmentApi } from './assessment';
+
+// =============================================================================
+// Re-exports
+// =============================================================================
+
+export { TokenManager, yeirinClient, soulClient } from './clients';

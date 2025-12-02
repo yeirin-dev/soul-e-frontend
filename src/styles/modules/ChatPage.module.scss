@@ -54,6 +54,7 @@
 .assessmentButton {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   background: linear-gradient(135deg, $sub200, #4cd48b);
   border: none;
@@ -65,18 +66,58 @@
   color: white;
   transition: all 0.2s;
   box-shadow: 0 2px 8px rgba(56, 189, 129, 0.3);
+  min-width: 120px;
 
   svg {
     flex-shrink: 0;
   }
 
-  &:hover {
+  &:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(56, 189, 129, 0.4);
   }
 
-  &:active {
+  &:active:not(:disabled) {
     transform: translateY(0);
+  }
+
+  // 로딩 상태
+  &.loading {
+    background: $gray300;
+    cursor: wait;
+    box-shadow: none;
+  }
+
+  // 검사 완료 상태
+  &.completed {
+    background: linear-gradient(135deg, $gray400, $gray500);
+    cursor: not-allowed;
+    box-shadow: none;
+    opacity: 0.8;
+
+    svg {
+      stroke: #4ade80;
+    }
+  }
+
+  // 진행 중인 검사 (이어서 검사)
+  &.inProgress {
+    background: linear-gradient(135deg, $main100, #ffb833);
+    box-shadow: 0 2px 8px rgba(255, 166, 0, 0.3);
+    animation: pulse 2s infinite;
+
+    &:hover {
+      box-shadow: 0 4px 12px rgba(255, 166, 0, 0.4);
+    }
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
   }
 }
 

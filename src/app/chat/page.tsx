@@ -18,7 +18,9 @@ import {
 } from '@/lib/store/chatSlice';
 import { clearChildSession, isChildSessionExpired } from '@/lib/store/authSlice';
 import { chatApi, sessionApi } from '@/lib/api';
+import { assessmentApi } from '@/lib/api/assessment';
 import { type ChatMessage } from '@/types/api';
+import { type ChildAssessmentStatus } from '@/types/assessment';
 import styles from '@/styles/modules/ChatPage.module.scss';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -38,6 +40,8 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [retryMessage, setRetryMessage] = useState<string | null>(null);
   const [showSessionList, setShowSessionList] = useState(false);
+  const [assessmentStatus, setAssessmentStatus] = useState<ChildAssessmentStatus | null>(null);
+  const [assessmentStatusLoading, setAssessmentStatusLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const sessionListRef = useRef<HTMLDivElement>(null);
@@ -107,10 +111,26 @@ export default function ChatPage() {
     }
   }, [childSessionToken, selectedChild, dispatch]);
 
-  // 페이지 로드 시 세션 목록 불러오기
+  // 검사 상태 불러오기
+  const fetchAssessmentStatus = useCallback(async () => {
+    if (!selectedChild) return;
+
+    setAssessmentStatusLoading(true);
+    try {
+      const status = await assessmentApi.getChildAssessmentStatus(selectedChild.id);
+      setAssessmentStatus(status);
+    } catch (error) {
+      console.error('Failed to fetch assessment status:', error);
+    } finally {
+      setAssessmentStatusLoading(false);
+    }
+  }, [selectedChild]);
+
+  // 페이지 로드 시 세션 목록 및 검사 상태 불러오기
   useEffect(() => {
     fetchSessions();
-  }, [fetchSessions]);
+    fetchAssessmentStatus();
+  }, [fetchSessions, fetchAssessmentStatus]);
 
   // 세션 히스토리 불러오기
   const loadSession = async (targetSessionId: string) => {
@@ -270,19 +290,56 @@ export default function ChatPage() {
         </button>
         <h2>소울이와 대화하기</h2>
 
-        {/* 검사하기 버튼 */}
-        <button
-          className={styles.assessmentButton}
-          onClick={() => router.push('/assessment')}
-          type="button"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
-            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
-            <rect x="9" y="3" width="6" height="4" rx="1" />
-            <path d="M9 12h6M9 16h6" />
-          </svg>
-          검사하기
-        </button>
+        {/* 검사하기 버튼 - 상태에 따라 다르게 표시 */}
+        {assessmentStatusLoading ? (
+          <button
+            className={`${styles.assessmentButton} ${styles.loading}`}
+            type="button"
+            disabled
+          >
+            <LoadingSpinner />
+          </button>
+        ) : assessmentStatus?.has_completed ? (
+          <button
+            className={`${styles.assessmentButton} ${styles.completed}`}
+            type="button"
+            disabled
+            title="검사가 이미 완료되었습니다"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
+              <path d="M9 12l2 2 4-4" />
+              <circle cx="12" cy="12" r="10" />
+            </svg>
+            검사 완료
+          </button>
+        ) : assessmentStatus?.has_in_progress ? (
+          <button
+            className={`${styles.assessmentButton} ${styles.inProgress}`}
+            onClick={() => router.push('/assessment')}
+            type="button"
+            title={assessmentStatus.message}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
+              <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+              <rect x="9" y="3" width="6" height="4" rx="1" />
+              <path d="M9 12h6M9 16h6" />
+            </svg>
+            이어서 검사
+          </button>
+        ) : (
+          <button
+            className={styles.assessmentButton}
+            onClick={() => router.push('/assessment')}
+            type="button"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
+              <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+              <rect x="9" y="3" width="6" height="4" rx="1" />
+              <path d="M9 12h6M9 16h6" />
+            </svg>
+            검사하기
+          </button>
+        )}
 
         {/* 세션 선택 드롭다운 */}
         <div className={styles.sessionSelector} ref={sessionListRef}>

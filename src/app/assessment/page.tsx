@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppSelector } from '@/lib/hooks/redux';
 import classNames from 'classnames/bind';
@@ -10,6 +10,7 @@ import type {
   AssessmentSession,
   AssessmentQuestion,
   AssessmentResult,
+  ChildAssessmentStatus,
 } from '@/types/assessment';
 
 import { SoulECharacter } from '@/components/SoulECharacter';
@@ -19,10 +20,13 @@ import styles from '@/styles/modules/AssessmentPage.module.scss';
 const cx = classNames.bind(styles);
 
 // 검사 단계 타입
-type AssessmentPhase = 'intro' | 'testing' | 'submitting' | 'result';
+type AssessmentPhase = 'loading' | 'intro' | 'completed' | 'testing' | 'submitting' | 'result';
 
 // 자동저장 딜레이 (ms)
-const AUTO_SAVE_DELAY = 5000;
+const AUTO_SAVE_DELAY = 3000;
+
+// N문항마다 서버에 저장
+const SAVE_EVERY_N_QUESTIONS = 5;
 
 // 한 페이지에 표시할 문항 수
 const QUESTIONS_PER_PAGE = 1;
@@ -32,7 +36,8 @@ export default function AssessmentPage() {
   const { selectedChild, childSessionToken } = useAppSelector((state) => state.auth);
 
   // 상태 관리
-  const [phase, setPhase] = useState<AssessmentPhase>('intro');
+  const [phase, setPhase] = useState<AssessmentPhase>('loading');
+  const [assessmentStatus, setAssessmentStatus] = useState<ChildAssessmentStatus | null>(null);
   const [session, setSession] = useState<AssessmentSession | null>(null);
   const [questions, setQuestions] = useState<AssessmentQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -40,19 +45,71 @@ export default function AssessmentPage() {
   const [result, setResult] = useState<AssessmentResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [restoredAnswerCount, setRestoredAnswerCount] = useState<number | null>(null);
 
   // 키보드 네비게이션용 포커스된 선택지 인덱스
   const [focusedChoiceIndex, setFocusedChoiceIndex] = useState<number>(-1);
 
-  // 자동저장 타이머
-  const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null);
+  // 자동저장 관련
   const [lastSavedAnswers, setLastSavedAnswers] = useState<Record<number, number>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const pendingSaveRef = useRef<Record<number, number>>({});
+  const answersRef = useRef<Record<number, number>>({});
 
-  // 세션/인증 체크
+  // answers가 변경될 때마다 ref 업데이트
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+
+  // 서버에 답변 저장 (전체 답변을 보냄 - 백엔드에서 merge)
+  const saveToServer = useCallback(async (allAnswers: Record<number, number>) => {
+    if (!session || Object.keys(allAnswers).length === 0) return;
+
+    setIsSaving(true);
+    try {
+      await assessmentApi.saveAnswers(session.session_id, { answers: allAnswers });
+      setLastSavedAnswers(allAnswers);
+      pendingSaveRef.current = {};
+      console.log(`Saved ${Object.keys(allAnswers).length} total answers to server`);
+    } catch (err) {
+      console.error('Save failed:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [session]);
+
+  // 세션/인증 체크 및 검사 상태 로드
   useEffect(() => {
     if (!childSessionToken || !selectedChild) {
       router.replace('/children');
+      return;
     }
+
+    const loadAssessmentStatus = async () => {
+      try {
+        // 아동별 검사 상태 조회
+        const status = await assessmentApi.getChildAssessmentStatus(selectedChild.id);
+        setAssessmentStatus(status);
+
+        // 상태에 따라 phase 결정
+        if (status.has_completed) {
+          // 이미 완료된 검사가 있음
+          setPhase('completed');
+        } else if (status.has_in_progress && status.in_progress_session) {
+          // 진행 중인 검사가 있음 - 자동으로 재개 준비
+          setSession(status.in_progress_session);
+          setPhase('intro');
+        } else {
+          // 새 검사 가능
+          setPhase('intro');
+        }
+      } catch (err) {
+        console.error('Failed to load assessment status:', err);
+        setPhase('intro'); // 실패해도 intro로 이동
+      }
+    };
+
+    loadAssessmentStatus();
   }, [childSessionToken, selectedChild, router]);
 
   // 문항 데이터 로드
@@ -70,49 +127,113 @@ export default function AssessmentPage() {
     loadQuestions();
   }, []);
 
-  // 자동저장 로직
-  const saveAnswers = useCallback(async () => {
-    if (!session) return;
+  // 진행 중인 세션의 답변 복원
+  useEffect(() => {
+    const loadExistingAnswers = async () => {
+      if (session && assessmentStatus?.has_in_progress) {
+        try {
+          // 세션에 저장된 답변 조회
+          const sessionAnswers = await assessmentApi.getSessionAnswers(session.session_id);
 
-    // 저장되지 않은 새 답변이 있는지 확인
-    const newAnswers: Record<number, number> = {};
-    Object.entries(answers).forEach(([key, value]) => {
-      const numKey = parseInt(key);
-      if (lastSavedAnswers[numKey] !== value) {
-        newAnswers[numKey] = value;
+          // 기존 답변 복원 - JSON 키는 항상 문자열이므로 숫자로 변환
+          const rawAnswers = sessionAnswers.answers || {};
+          const convertedAnswers: Record<number, number> = {};
+
+          for (const [key, value] of Object.entries(rawAnswers)) {
+            convertedAnswers[Number(key)] = value as number;
+          }
+
+          const answerCount = Object.keys(convertedAnswers).length;
+          setRestoredAnswerCount(answerCount);
+
+          if (answerCount > 0) {
+            setAnswers(convertedAnswers);
+            setLastSavedAnswers(convertedAnswers);
+
+            // 마지막 응답 위치로 이동 (다음 문항으로)
+            if (sessionAnswers.last_answered_question !== null) {
+              const nextIndex = Math.min(
+                sessionAnswers.last_answered_question, // 마지막 응답 문항 다음으로
+                questions.length - 1
+              );
+              setCurrentIndex(nextIndex);
+            }
+
+            console.log(
+              `Restored ${answerCount} answers, ` +
+              `last question: ${sessionAnswers.last_answered_question}`,
+              `keys sample:`, Object.keys(convertedAnswers).slice(0, 5)
+            );
+          }
+        } catch (err) {
+          console.error('Failed to load existing answers:', err);
+          // 실패 시 세션의 answered_count 사용
+          setRestoredAnswerCount(assessmentStatus.in_progress_session?.answered_count || 0);
+        }
       }
-    });
+    };
 
-    if (Object.keys(newAnswers).length === 0) return;
-
-    try {
-      await assessmentApi.saveAnswers(session.session_id, { answers: newAnswers });
-      setLastSavedAnswers({ ...lastSavedAnswers, ...newAnswers });
-    } catch (err) {
-      console.error('Auto-save failed:', err);
+    if (questions.length > 0 && session) {
+      loadExistingAnswers();
     }
-  }, [session, answers, lastSavedAnswers]);
+  }, [session, assessmentStatus, questions.length]);
 
-  // 답변 변경 시 자동저장 예약
+  // 타이머 기반 자동저장 (N초마다 미저장 답변이 있으면 전체 답변 저장)
   useEffect(() => {
     if (phase !== 'testing' || !session) return;
 
-    if (autoSaveTimer) {
-      clearTimeout(autoSaveTimer);
-    }
-
-    const timer = setTimeout(() => {
-      saveAnswers();
+    const timer = setInterval(() => {
+      const hasPending = Object.keys(pendingSaveRef.current).length > 0;
+      if (hasPending && !isSaving) {
+        // 전체 답변을 저장 (백엔드에서 merge)
+        saveToServer({ ...answersRef.current });
+      }
     }, AUTO_SAVE_DELAY);
 
-    setAutoSaveTimer(timer);
+    return () => clearInterval(timer);
+  }, [phase, session, isSaving, saveToServer]);
+
+  // 페이지 이탈 시 자동저장 (브라우저 종료, 탭 닫기, 새로고침 등)
+  useEffect(() => {
+    if (phase !== 'testing' || !session) return;
+
+    // 동기적으로 저장 시도 (sendBeacon 사용) - 전체 답변 저장
+    const saveBeforeUnload = () => {
+      const allAnswers = answersRef.current;
+      if (Object.keys(allAnswers).length === 0) return;
+
+      // navigator.sendBeacon으로 비동기 요청 (페이지 종료 시에도 완료됨)
+      const url = `${process.env.NEXT_PUBLIC_SOUL_BACKEND_URL || 'http://localhost:8000'}/api/v1/assessment/sessions/${session.session_id}/answers`;
+      const data = JSON.stringify({ answers: allAnswers });
+
+      try {
+        navigator.sendBeacon(url, new Blob([data], { type: 'application/json' }));
+        console.log(`[beforeunload] Sent ${Object.keys(allAnswers).length} total answers via sendBeacon`);
+      } catch (err) {
+        console.error('[beforeunload] sendBeacon failed:', err);
+      }
+    };
+
+    // 탭이 백그라운드로 갈 때 저장 - 전체 답변 저장
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        const hasPending = Object.keys(pendingSaveRef.current).length > 0;
+        if (hasPending && !isSaving) {
+          saveToServer({ ...answersRef.current });
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', saveBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      if (timer) clearTimeout(timer);
+      window.removeEventListener('beforeunload', saveBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [answers, phase, session]);
+  }, [phase, session, isSaving, saveToServer]);
 
-  // 검사 시작
+  // 검사 시작 또는 재개
   const handleStartAssessment = async () => {
     if (!selectedChild) return;
 
@@ -120,15 +241,20 @@ export default function AssessmentPage() {
     setError(null);
 
     try {
-      const newSession = await assessmentApi.startAssessment({
-        child_id: selectedChild.id,
-        child_name: selectedChild.name,
-        gender: selectedChild.gender === '남자' ? 'M' : 'F',
-        birth_date: selectedChild.birth_date,
-        school_grade: calculateGrade(selectedChild.birth_date),
-      });
+      let currentSession = session;
 
-      setSession(newSession);
+      // 진행 중인 세션이 없으면 새로 생성
+      if (!currentSession) {
+        currentSession = await assessmentApi.startAssessment({
+          child_id: selectedChild.id,
+          child_name: selectedChild.name,
+          gender: selectedChild.gender === '남자' ? 'M' : 'F',
+          birth_date: selectedChild.birth_date,
+          school_grade: calculateGrade(selectedChild.birth_date),
+        });
+        setSession(currentSession);
+      }
+
       setPhase('testing');
     } catch (err: any) {
       console.error('Failed to start assessment:', err);
@@ -197,12 +323,26 @@ export default function AssessmentPage() {
   };
 
   // 답변 선택
-  const handleSelectAnswer = (questionNumber: number, choice: number) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [questionNumber]: choice,
-    }));
-  };
+  const handleSelectAnswer = useCallback((questionNumber: number, choice: number) => {
+    setAnswers((prev) => {
+      const newAnswers = {
+        ...prev,
+        [questionNumber]: choice,
+      };
+
+      // 저장되지 않은 답변 추적
+      pendingSaveRef.current[questionNumber] = choice;
+
+      // N문항마다 서버에 전체 답변 저장
+      const unsavedCount = Object.keys(pendingSaveRef.current).length;
+      if (unsavedCount >= SAVE_EVERY_N_QUESTIONS && session && !isSaving) {
+        // 전체 답변을 저장 (새로 추가된 답변 포함)
+        saveToServer(newAnswers);
+      }
+
+      return newAnswers;
+    });
+  }, [session, isSaving, saveToServer]);
 
   // 이전 문항
   const handlePrevious = () => {
@@ -245,9 +385,32 @@ export default function AssessmentPage() {
     }
   };
 
-  // 채팅으로 돌아가기
-  const handleBackToChat = () => {
+  // 채팅으로 돌아가기 (나가기 전 전체 답변 저장)
+  const handleBackToChat = useCallback(async () => {
+    // 진행 중인 검사라면 나가기 전 전체 답변 저장
+    if (session && phase === 'testing') {
+      const allAnswers = answersRef.current;
+      if (Object.keys(allAnswers).length > 0) {
+        try {
+          await assessmentApi.saveAnswers(session.session_id, { answers: allAnswers });
+          pendingSaveRef.current = {};
+          console.log(`Saved ${Object.keys(allAnswers).length} total answers before leaving`);
+        } catch (err) {
+          console.error('Failed to save before leaving:', err);
+        }
+      }
+    }
+
     router.push('/chat');
+  }, [session, phase, router]);
+
+  // 결과 보러 가기 (완료된 검사)
+  const handleViewResult = () => {
+    if (assessmentStatus?.latest_completed_session) {
+      // Inpsyt 리포트 URL로 이동
+      // 실제로는 세션에서 report_url을 가져와야 함
+      router.push('/chat');
+    }
   };
 
   // 에러 닫기
@@ -365,6 +528,18 @@ export default function AssessmentPage() {
     return null;
   }
 
+  // 로딩 중
+  if (phase === 'loading') {
+    return (
+      <div className={cx('assessmentPage')}>
+        <section className={cx('loadingSection')}>
+          <LoadingSpinner />
+          <span className={cx('loadingText')}>검사 정보를 불러오는 중...</span>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className={cx('assessmentPage')}>
       {/* 에러 배너 */}
@@ -377,6 +552,51 @@ export default function AssessmentPage() {
           </svg>
           <span className={cx('errorText')}>{error}</span>
         </div>
+      )}
+
+      {/* 이미 완료된 검사가 있을 때 */}
+      {phase === 'completed' && assessmentStatus && (
+        <section className={cx('completedSection')}>
+          <button className={cx('backButtonFloat')} onClick={handleBackToChat}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          <div className={cx('characterWrapper')}>
+            <SoulECharacter state="greeting" size="large" />
+          </div>
+
+          <div className={cx('completedContent')}>
+            <h1>검사를 이미 완료했어요!</h1>
+            <p className={cx('completedMessage')}>
+              {selectedChild.name} 친구는 이미 심리검사를 완료했어요.
+            </p>
+            <p className={cx('completedSubMessage')}>
+              검사 결과는 보호자님께 전달되었어요.
+              더 궁금한 게 있으면 소울이랑 이야기해봐요!
+            </p>
+          </div>
+
+          <div className={cx('completedInfo')}>
+            <div className={cx('infoItem')}>
+              <span className={cx('label')}>완료된 검사</span>
+              <span className={cx('value')}>{assessmentStatus.total_completed_count}회</span>
+            </div>
+            {assessmentStatus.latest_completed_session && (
+              <div className={cx('infoItem')}>
+                <span className={cx('label')}>마지막 검사</span>
+                <span className={cx('value')}>
+                  {new Date(assessmentStatus.latest_completed_session.updated_at).toLocaleDateString('ko-KR')}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <button className={cx('primaryButton')} onClick={handleBackToChat}>
+            소울이랑 대화하기
+          </button>
+        </section>
       )}
 
       {/* 인트로 화면 */}
@@ -393,13 +613,32 @@ export default function AssessmentPage() {
           </div>
 
           <div className={cx('introContent')}>
-            <h1>안녕, {selectedChild.name}!</h1>
-            <p>
-              나랑 같이 재미있는 질문들에 답해볼래?
-            </p>
-            <p>
-              맞고 틀린 건 없어! 느끼는 대로 편하게 골라줘~
-            </p>
+            {assessmentStatus?.has_in_progress ? (
+              // 진행 중인 검사 재개
+              <>
+                <h1>이어서 해볼까, {selectedChild.name}?</h1>
+                <p>
+                  아까 하던 검사가 남아있어!
+                </p>
+                <p>
+                  {restoredAnswerCount !== null
+                    ? restoredAnswerCount
+                    : assessmentStatus.in_progress_session?.answered_count || 0}개 문항을 완료했어.
+                  계속 이어서 할까?
+                </p>
+              </>
+            ) : (
+              // 새 검사 시작
+              <>
+                <h1>안녕, {selectedChild.name}!</h1>
+                <p>
+                  나랑 같이 재미있는 질문들에 답해볼래?
+                </p>
+                <p>
+                  맞고 틀린 건 없어! 느끼는 대로 편하게 골라줘~
+                </p>
+              </>
+            )}
           </div>
 
           <div className={cx('infoCard')}>
@@ -412,7 +651,11 @@ export default function AssessmentPage() {
               </div>
               <div className={cx('infoText')}>
                 <span className={cx('label')}>질문</span>
-                <span className={cx('value')}>{questions.length}개</span>
+                <span className={cx('value')}>
+                  {assessmentStatus?.has_in_progress
+                    ? `${restoredAnswerCount !== null ? restoredAnswerCount : assessmentStatus.in_progress_session?.answered_count || 0} / ${questions.length}개`
+                    : `${questions.length}개`}
+                </span>
               </div>
             </div>
 
@@ -425,7 +668,11 @@ export default function AssessmentPage() {
               </div>
               <div className={cx('infoText')}>
                 <span className={cx('label')}>걸리는 시간</span>
-                <span className={cx('value')}>20~30분 정도</span>
+                <span className={cx('value')}>
+                  {assessmentStatus?.has_in_progress
+                    ? '남은 시간에 따라 달라요'
+                    : '20~30분 정도'}
+                </span>
               </div>
             </div>
           </div>
@@ -435,17 +682,23 @@ export default function AssessmentPage() {
             onClick={handleStartAssessment}
             disabled={isLoading || questions.length === 0}
           >
-            {isLoading ? '준비 중...' : '시작할래!'}
+            {isLoading
+              ? '준비 중...'
+              : assessmentStatus?.has_in_progress
+              ? '이어서 할래!'
+              : '시작할래!'}
           </button>
 
-          {/* 개발자 테스트용 버튼 */}
-          <button
-            className={cx('devTestButton')}
-            onClick={handleDevTestSubmit}
-            disabled={isLoading || questions.length === 0}
-          >
-            {isLoading ? '제출 중...' : '🧪 빠른 테스트 (개발자용)'}
-          </button>
+          {/* 개발자 테스트용 버튼 - 진행 중이 아닐 때만 표시 */}
+          {!assessmentStatus?.has_in_progress && (
+            <button
+              className={cx('devTestButton')}
+              onClick={handleDevTestSubmit}
+              disabled={isLoading || questions.length === 0}
+            >
+              {isLoading ? '제출 중...' : '🧪 빠른 테스트 (개발자용)'}
+            </button>
+          )}
         </section>
       )}
 
