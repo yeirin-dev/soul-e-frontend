@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
 
 // 환경변수에서 백엔드 URL 가져오기 (Vercel 배포용)
-const SOUL_API_URL = process.env.NEXT_PUBLIC_SOUL_API_URL || 'http://localhost:8000';
-const YEIRIN_API_URL = process.env.NEXT_PUBLIC_YEIRIN_API_URL || 'http://localhost:3000';
+// 서버사이드 전용 환경변수 (NEXT_PUBLIC_ 없음) - 클라이언트에 노출되지 않음
+const SOUL_API_URL = process.env.SOUL_API_URL || 'http://localhost:8000';
+const YEIRIN_API_URL = process.env.YEIRIN_API_URL || 'http://localhost:3000';
 
 const nextConfig: NextConfig = {
   async rewrites() {
