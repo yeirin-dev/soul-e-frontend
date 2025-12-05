@@ -1,5 +1,9 @@
 import type { NextConfig } from "next";
 
+// 환경변수에서 백엔드 URL 가져오기 (Vercel 배포용)
+const SOUL_API_URL = process.env.NEXT_PUBLIC_SOUL_API_URL || 'http://localhost:8000';
+const YEIRIN_API_URL = process.env.NEXT_PUBLIC_YEIRIN_API_URL || 'http://localhost:3000';
+
 const nextConfig: NextConfig = {
   async rewrites() {
     return [
@@ -9,7 +13,7 @@ const nextConfig: NextConfig = {
       // ============================================
       {
         source: '/soul-api/:path*',
-        destination: 'http://localhost:8000/api/v1/:path*',
+        destination: `${SOUL_API_URL}/api/v1/:path*`,
       },
 
       // ============================================
@@ -18,7 +22,7 @@ const nextConfig: NextConfig = {
       // ============================================
       {
         source: '/yeirin-api/:path*',
-        destination: 'http://localhost:3000/:path*',
+        destination: `${YEIRIN_API_URL}/:path*`,
       },
     ];
   },
