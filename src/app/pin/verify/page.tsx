@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks/redux';
-import { verifyChildPin, clearPinError, clearChat } from '@/lib/store/authSlice';
-import { clearChat as clearChatMessages } from '@/lib/store/chatSlice';
+import { verifyChildPin, clearPinError } from '@/lib/store/authSlice';
+import { clearChat } from '@/lib/store/chatSlice';
 import { SoulECharacter } from '@/components/SoulECharacter';
 import { PinInput } from '@/components/PinInput';
 import styles from '@/styles/modules/PinPage.module.scss';
@@ -49,7 +49,7 @@ export default function PinVerifyPage() {
     if (!selectedChild || pinLoading) return;
 
     // 기존 채팅 내역 클리어
-    dispatch(clearChatMessages());
+    dispatch(clearChat());
 
     const result = await dispatch(verifyChildPin({ child: selectedChild, pin: value }));
 
