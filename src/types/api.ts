@@ -33,6 +33,51 @@ export interface ChildInfo {
   gender: string;
   child_type: string;
   is_eligible: boolean; // 9-15세 대상 여부
+  has_pin: boolean; // PIN 설정 여부
+}
+
+// PIN Types
+export interface PinStatusResponse {
+  child_id: string;
+  has_pin: boolean;
+  message: string;
+}
+
+export interface SetPinRequest {
+  child_id: string;
+  pin: string;
+}
+
+export interface SetPinResponse {
+  child_id: string;
+  success: boolean;
+  message: string;
+}
+
+export interface VerifyPinRequest {
+  child_id: string;
+  pin: string;
+}
+
+export interface VerifyPinResponse {
+  child_id: string;
+  verified: boolean;
+  session_token: string | null;
+  child_name: string | null;
+  expires_in_minutes: number | null;
+  failed_attempts: number;
+  message: string;
+}
+
+export interface ChangePinRequest {
+  child_id: string;
+  new_pin: string;
+}
+
+export interface ChangePinResponse {
+  child_id: string;
+  success: boolean;
+  message: string;
 }
 
 export interface ChildListResponse {

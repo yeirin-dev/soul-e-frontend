@@ -402,7 +402,7 @@ export default function AssessmentPage() {
     }
 
     router.push('/chat');
-  }, [session, phase, router]);
+  }, [session, phase]);
 
   // 결과 보러 가기 (완료된 검사)
   const handleViewResult = () => {

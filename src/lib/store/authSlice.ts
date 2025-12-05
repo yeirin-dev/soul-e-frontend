@@ -1,5 +1,5 @@
 import { createSlice, type PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
-import { type TeacherInfo, type ChildInfo, type LoginRequest } from '@/types/api';
+import { type TeacherInfo, type ChildInfo, type LoginRequest, type VerifyPinResponse } from '@/types/api';
 import { authApi } from '@/lib/api';
 
 interface AuthState {
@@ -13,6 +13,10 @@ interface AuthState {
   childrenLoading: boolean;
   selectingChild: boolean;
   error: string | null;
+  // PIN 관련 상태
+  pinLoading: boolean;
+  pinError: string | null;
+  pinFailedAttempts: number;
 }
 
 const getStoredToken = (key: string): string | null => {
@@ -41,6 +45,10 @@ const initialState: AuthState = {
   childrenLoading: false,
   selectingChild: false,
   error: null,
+  // PIN 관련 초기 상태
+  pinLoading: false,
+  pinError: null,
+  pinFailedAttempts: 0,
 };
 
 export const loginTeacher = createAsyncThunk(
@@ -118,6 +126,48 @@ export const isChildSessionExpired = (): boolean => {
   return Date.now() > parseInt(expiresAt, 10);
 };
 
+// PIN 설정 (최초)
+export const setChildPin = createAsyncThunk(
+  'auth/setChildPin',
+  async ({ childId, pin }: { childId: string; pin: string }, { rejectWithValue }) => {
+    try {
+      const response = await authApi.setPin({ child_id: childId, pin });
+      return response;
+    } catch (error: unknown) {
+      const message = (error as { message?: string })?.message || 'PIN 설정에 실패했습니다.';
+      return rejectWithValue(message);
+    }
+  }
+);
+
+// PIN 검증 및 세션 시작
+export const verifyChildPin = createAsyncThunk(
+  'auth/verifyChildPin',
+  async ({ child, pin }: { child: ChildInfo; pin: string }, { rejectWithValue }) => {
+    try {
+      const response = await authApi.verifyPin({ child_id: child.id, pin });
+      return { child, response };
+    } catch (error: unknown) {
+      const message = (error as { message?: string })?.message || 'PIN 검증에 실패했습니다.';
+      return rejectWithValue(message);
+    }
+  }
+);
+
+// PIN 변경 (교사용)
+export const changeChildPin = createAsyncThunk(
+  'auth/changeChildPin',
+  async ({ childId, newPin }: { childId: string; newPin: string }, { rejectWithValue }) => {
+    try {
+      const response = await authApi.changePin({ child_id: childId, new_pin: newPin });
+      return response;
+    } catch (error: unknown) {
+      const message = (error as { message?: string })?.message || 'PIN 변경에 실패했습니다.';
+      return rejectWithValue(message);
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -129,10 +179,22 @@ const authSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
+    clearPinError: (state) => {
+      state.pinError = null;
+    },
+    clearPinState: (state) => {
+      state.pinError = null;
+      state.pinFailedAttempts = 0;
+    },
+    setSelectedChild: (state, action: PayloadAction<ChildInfo>) => {
+      state.selectedChild = action.payload;
+    },
     clearChildSession: (state) => {
       state.selectedChild = null;
       state.childSessionToken = null;
       state.childSessionExpiresAt = null;
+      state.pinError = null;
+      state.pinFailedAttempts = 0;
       localStorage.removeItem('child_session_token');
       localStorage.removeItem('child_session_expires_at');
     },
@@ -144,6 +206,8 @@ const authSlice = createSlice({
       state.childSessionToken = null;
       state.childSessionExpiresAt = null;
       state.error = null;
+      state.pinError = null;
+      state.pinFailedAttempts = 0;
       localStorage.removeItem('yeirin_token');
       localStorage.removeItem('child_session_token');
       localStorage.removeItem('child_session_expires_at');
@@ -193,9 +257,71 @@ const authSlice = createSlice({
       .addCase(selectChildSession.rejected, (state, action) => {
         state.selectingChild = false;
         state.error = action.payload as string;
+      })
+      // Set PIN
+      .addCase(setChildPin.pending, (state) => {
+        state.pinLoading = true;
+        state.pinError = null;
+      })
+      .addCase(setChildPin.fulfilled, (state) => {
+        state.pinLoading = false;
+        state.pinError = null;
+        // 아동 목록에서 해당 아동의 has_pin을 true로 업데이트
+        if (state.selectedChild) {
+          state.selectedChild.has_pin = true;
+          const childIndex = state.children.findIndex(c => c.id === state.selectedChild?.id);
+          if (childIndex !== -1) {
+            state.children[childIndex].has_pin = true;
+          }
+        }
+      })
+      .addCase(setChildPin.rejected, (state, action) => {
+        state.pinLoading = false;
+        state.pinError = action.payload as string;
+      })
+      // Verify PIN
+      .addCase(verifyChildPin.pending, (state) => {
+        state.pinLoading = true;
+        state.pinError = null;
+      })
+      .addCase(verifyChildPin.fulfilled, (state, action) => {
+        state.pinLoading = false;
+        const { child, response } = action.payload;
+        if (response.verified && response.session_token && response.expires_in_minutes) {
+          state.selectedChild = child;
+          state.childSessionToken = response.session_token;
+          const expiresAt = Date.now() + response.expires_in_minutes * 60 * 1000;
+          state.childSessionExpiresAt = expiresAt;
+          state.pinError = null;
+          state.pinFailedAttempts = 0;
+
+          // localStorage에 세션 정보 저장
+          localStorage.setItem('child_session_token', response.session_token);
+          localStorage.setItem('child_session_expires_at', expiresAt.toString());
+        } else {
+          state.pinError = response.message;
+          state.pinFailedAttempts = response.failed_attempts;
+        }
+      })
+      .addCase(verifyChildPin.rejected, (state, action) => {
+        state.pinLoading = false;
+        state.pinError = action.payload as string;
+      })
+      // Change PIN
+      .addCase(changeChildPin.pending, (state) => {
+        state.pinLoading = true;
+        state.pinError = null;
+      })
+      .addCase(changeChildPin.fulfilled, (state) => {
+        state.pinLoading = false;
+        state.pinError = null;
+      })
+      .addCase(changeChildPin.rejected, (state, action) => {
+        state.pinLoading = false;
+        state.pinError = action.payload as string;
       });
   },
 });
 
-export const { setYeirinToken, clearError, clearChildSession, logout } = authSlice.actions;
+export const { setYeirinToken, clearError, clearPinError, clearPinState, setSelectedChild, clearChildSession, logout } = authSlice.actions;
 export default authSlice.reducer;

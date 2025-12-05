@@ -28,6 +28,13 @@ import {
   type LoginResponse,
   type SessionInfo,
   type SessionDetailResponse,
+  type PinStatusResponse,
+  type SetPinRequest,
+  type SetPinResponse,
+  type VerifyPinRequest,
+  type VerifyPinResponse,
+  type ChangePinRequest,
+  type ChangePinResponse,
 } from '@/types/api';
 
 // =============================================================================
@@ -95,6 +102,55 @@ export const authApi = {
    */
   logout: (): void => {
     TokenManager.clearAll();
+  },
+
+  // ==========================================================================
+  // PIN Management
+  // ==========================================================================
+
+  /**
+   * PIN 설정 상태 조회
+   * Soul-E Backend (8000) - yeirin_token 사용
+   */
+  getPinStatus: async (childId: string): Promise<PinStatusResponse> => {
+    const response = await soulClient.get<PinStatusResponse>(`/auth/pin/status/${childId}`);
+    return response.data;
+  },
+
+  /**
+   * PIN 최초 설정
+   * Soul-E Backend (8000) - yeirin_token 사용
+   */
+  setPin: async (request: SetPinRequest): Promise<SetPinResponse> => {
+    const response = await soulClient.post<SetPinResponse>('/auth/pin/set', request);
+    return response.data;
+  },
+
+  /**
+   * PIN 검증 및 세션 토큰 발급
+   * Soul-E Backend (8000) - yeirin_token 사용
+   * 성공 시 child_session_token 발급
+   */
+  verifyPin: async (request: VerifyPinRequest): Promise<VerifyPinResponse> => {
+    const response = await soulClient.post<VerifyPinResponse>('/auth/pin/verify', request);
+
+    // PIN 검증 성공 시 토큰 저장
+    if (response.data.verified && response.data.session_token && response.data.expires_in_minutes) {
+      const expiresAt = new Date(Date.now() + response.data.expires_in_minutes * 60 * 1000).toISOString();
+      TokenManager.setChildToken(response.data.session_token, expiresAt);
+      TokenManager.setSelectedChildId(request.child_id);
+    }
+
+    return response.data;
+  },
+
+  /**
+   * PIN 변경 (교사용)
+   * Soul-E Backend (8000) - yeirin_token 사용
+   */
+  changePin: async (request: ChangePinRequest): Promise<ChangePinResponse> => {
+    const response = await soulClient.post<ChangePinResponse>('/auth/pin/change', request);
+    return response.data;
   },
 };
 

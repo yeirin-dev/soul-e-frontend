@@ -312,6 +312,30 @@
   font-weight: 500;
 }
 
+// 첫 방문 뱃지
+.newBadge {
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.35rem 1rem;
+  background: linear-gradient(135deg, $main400, #fff0d9);
+  color: $main100;
+  font-size: 0.9rem;
+  border-radius: 14px;
+  font-weight: 600;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+}
+
 // 태블릿
 @media (max-width: 1024px) {
   .mainContent {

@@ -369,13 +369,10 @@ const createSoulClient = (): AxiosInstance => {
   // Request Interceptor - 토큰 추가 및 Proactive Refresh
   client.interceptors.request.use(
     async (config) => {
-      // Assessment API는 토큰 불필요
-      if (config.url?.includes('/assessment')) {
-        return config;
-      }
+      const url = config.url || '';
 
       // /auth/* 엔드포인트는 yeirin_token 사용
-      if (config.url?.includes('/auth/')) {
+      if (url.includes('/auth/')) {
         const yeirinToken = TokenManager.getYeirinToken();
         if (yeirinToken) {
           config.headers.Authorization = `Bearer ${yeirinToken}`;
@@ -383,7 +380,12 @@ const createSoulClient = (): AxiosInstance => {
         return config;
       }
 
-      // 그 외 (채팅, 세션 등)는 child_session_token 사용
+      // Assessment API 중 인증 불필요한 엔드포인트 (문항 조회, health check)
+      if (url.includes('/assessment/questions') || url.includes('/assessment/health')) {
+        return config;
+      }
+
+      // 그 외 (채팅, 세션, assessment/children, assessment/sessions 등)는 child_session_token 사용
       // Proactive Refresh: 만료 5분 전이면 미리 갱신
       if (TokenManager.isChildTokenExpiringSoon() && !TokenManager.isChildTokenExpired()) {
         console.log('[Silent Refresh] 토큰 만료 임박, 사전 갱신 시도');
@@ -404,13 +406,18 @@ const createSoulClient = (): AxiosInstance => {
     (response) => response,
     async (error: AxiosError<ApiErrorResponse>) => {
       const originalRequest = error.config as CustomAxiosRequestConfig | undefined;
+      const url = originalRequest?.url || '';
 
-      // 401 에러 && 재시도 안 했으면 && auth 엔드포인트가 아니면
+      // 401 에러 && 재시도 안 했으면 && auth 엔드포인트가 아니면 && 인증 불필요 엔드포인트가 아니면
+      const isAuthEndpoint = url.includes('/auth/');
+      const isPublicEndpoint = url.includes('/assessment/questions') || url.includes('/assessment/health');
+
       if (
         error.response?.status === 401 &&
         originalRequest &&
         !originalRequest._retry &&
-        !originalRequest.url?.includes('/auth/')
+        !isAuthEndpoint &&
+        !isPublicEndpoint
       ) {
         originalRequest._retry = true;
 

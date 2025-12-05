@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks/redux';
-import { fetchChildren, selectChildSession, clearError, logout } from '@/lib/store/authSlice';
+import { fetchChildren, selectChildSession, clearError, logout, setSelectedChild, clearPinState } from '@/lib/store/authSlice';
 import { clearChat } from '@/lib/store/chatSlice';
 import { type ChildInfo } from '@/types/api';
 import { SoulECharacter } from '@/components/SoulECharacter';
@@ -61,13 +61,22 @@ export default function ChildSelectPage() {
 
     setSelectingChildId(child.id);
 
-    // 기존 채팅 내역 클리어
+    // 기존 상태 클리어
     dispatch(clearChat());
+    dispatch(clearPinState());
 
-    const result = await dispatch(selectChildSession(child));
-    if (selectChildSession.fulfilled.match(result)) {
-      router.push('/chat');
+    // 아동 선택 저장
+    dispatch(setSelectedChild(child));
+
+    // PIN 설정 여부에 따라 라우팅
+    if (child.has_pin) {
+      // PIN이 있으면 인증 페이지로
+      router.push('/pin/verify');
+    } else {
+      // PIN이 없으면 설정 페이지로
+      router.push('/pin/setup');
     }
+
     setSelectingChildId(null);
   };
 
@@ -168,6 +177,9 @@ export default function ChildSelectPage() {
                         <p>{child.age}세</p>
                         {!child.is_eligible && (
                           <span className={styles.badge}>9-15세만 이용 가능</span>
+                        )}
+                        {child.is_eligible && !child.has_pin && (
+                          <span className={styles.newBadge}>🔐 첫 방문</span>
                         )}
                       </div>
                     </button>
