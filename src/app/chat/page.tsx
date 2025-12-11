@@ -27,6 +27,8 @@ import { v4 as uuidv4 } from 'uuid';
 // Soul-E Components
 import { SoulECharacter } from '@/components/SoulECharacter';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { VoiceButton } from '@/components/VoiceButton';
+import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
 
 export default function ChatPage() {
   const dispatch = useAppDispatch();
@@ -45,6 +47,9 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const sessionListRef = useRef<HTMLDivElement>(null);
+
+  // 음성 인식 완료 시 메시지 전송용 ref (순환 의존성 해결)
+  const sendMessageRef = useRef<(text: string) => void>(() => {});
 
   // 세션 만료 체크
   useEffect(() => {
@@ -180,10 +185,8 @@ export default function ChatPage() {
     };
   }, [showSessionList]);
 
-  const handleSend = async (e?: React.FormEvent, messageToSend?: string) => {
-    e?.preventDefault();
-
-    const content = messageToSend || input.trim();
+  // 메시지 전송 핵심 로직 (텍스트 입력 / 음성 입력 공통)
+  const handleSendMessage = useCallback(async (content: string) => {
     if (!content || isLoading) return;
 
     if (isChildSessionExpired()) {
@@ -247,6 +250,51 @@ export default function ChatPage() {
       dispatch(setLoading(false));
       inputRef.current?.focus();
     }
+  }, [isLoading, dispatch, router, sessionId]);
+
+  // sendMessageRef 업데이트 (순환 의존성 해결)
+  useEffect(() => {
+    sendMessageRef.current = handleSendMessage;
+  }, [handleSendMessage]);
+
+  // 음성 인식 완료 시 자동 전송 콜백
+  const handleVoiceTranscription = useCallback((text: string) => {
+    sendMessageRef.current(text);
+  }, []);
+
+  // 음성 인식 에러 핸들러
+  const handleVoiceError = useCallback((error: string) => {
+    dispatch(setError(error));
+  }, [dispatch]);
+
+  // Voice Recorder 훅
+  const {
+    startListening,
+    stopListening,
+    isListening: voiceIsListening,
+    isRecording: voiceIsRecording,
+    isTranscribing: voiceIsTranscribing,
+    error: voiceError,
+    isVADLoading,
+  } = useVoiceRecorder({
+    onTranscription: handleVoiceTranscription,
+    onError: handleVoiceError,
+  });
+
+  // 음성 버튼 클릭 핸들러
+  const handleVoiceButtonClick = useCallback(() => {
+    if (voiceIsListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  }, [voiceIsListening, startListening, stopListening]);
+
+  // 폼 제출 핸들러
+  const handleSend = (e?: React.FormEvent, messageToSend?: string) => {
+    e?.preventDefault();
+    const content = messageToSend || input.trim();
+    handleSendMessage(content);
   };
 
   const handleRetry = () => {
@@ -473,15 +521,25 @@ export default function ChatPage() {
       )}
 
       <form onSubmit={handleSend} className={styles.inputArea}>
+        {/* 음성 입력 버튼 */}
+        <VoiceButton
+          isListening={voiceIsListening}
+          isRecording={voiceIsRecording}
+          isTranscribing={voiceIsTranscribing}
+          isLoading={isVADLoading}
+          error={voiceError}
+          disabled={isLoading}
+          onClick={handleVoiceButtonClick}
+        />
         <input
           ref={inputRef}
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="소울이에게 말을 걸어보세요..."
-          disabled={isLoading}
+          placeholder={voiceIsListening ? '말씀하세요...' : '소울이에게 말을 걸어보세요...'}
+          disabled={isLoading || voiceIsRecording || voiceIsTranscribing}
         />
-        <button type="submit" disabled={isLoading || !input.trim()}>
+        <button type="submit" disabled={isLoading || !input.trim() || voiceIsRecording || voiceIsTranscribing}>
           {isLoading ? '...' : '전송'}
         </button>
       </form>

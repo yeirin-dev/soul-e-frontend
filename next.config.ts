@@ -27,6 +27,23 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // WASM 파일을 위한 헤더 설정 (VAD용)
+  async headers() {
+    return [
+      {
+        source: '/vad/:path*.wasm',
+        headers: [
+          { key: 'Content-Type', value: 'application/wasm' },
+        ],
+      },
+      {
+        source: '/vad/:path*.onnx',
+        headers: [
+          { key: 'Content-Type', value: 'application/octet-stream' },
+        ],
+      },
+    ];
+  },
   sassOptions: {
     silenceDeprecations: ['legacy-js-api'],
   },
@@ -60,6 +77,12 @@ const nextConfig: NextConfig = {
     )
 
     fileLoaderRule.exclude = /\.svg$/i
+
+    // WASM 지원 (VAD용)
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
+    }
 
     return config
   },

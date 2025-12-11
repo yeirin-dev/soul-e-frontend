@@ -6,16 +6,21 @@
     "dev": "next dev -p 3001",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "node scripts/copy-vad-files.js",
+    "copy-vad": "node scripts/copy-vad-files.js"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.11.0",
+    "@ricky0123/vad-react": "^0.0.36",
+    "@ricky0123/vad-web": "^0.0.30",
     "@types/uuid": "^10.0.0",
     "axios": "^1.13.2",
     "classnames": "^2.5.1",
     "clsx": "^2.1.1",
     "lottie-react": "^2.4.1",
     "next": "16.0.5",
+    "onnxruntime-web": "^1.23.2",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-redux": "^9.2.0",

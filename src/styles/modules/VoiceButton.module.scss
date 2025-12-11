@@ -1,0 +1,247 @@
+@use '../index' as *;
+
+// =============================================================================
+// Voice Button Component
+// 음성 입력 버튼 - 상태별 시각적 피드백
+// =============================================================================
+
+.voiceButton {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+
+  // 기본 상태 (비활성화)
+  background: $gray200;
+  color: $gray500;
+
+  &:hover:not(:disabled) {
+    background: $gray300;
+    transform: scale(1.05);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.95);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  // 아이콘
+  svg {
+    width: 24px;
+    height: 24px;
+    transition: all 0.2s ease;
+  }
+}
+
+// =============================================================================
+// 상태별 스타일
+// =============================================================================
+
+// 청취 중 (VAD 활성화, 발화 대기)
+.listening {
+  background: $main100;
+  color: white;
+  box-shadow: 0 2px 12px rgba(255, 166, 0, 0.4);
+
+  &:hover:not(:disabled) {
+    background: #e69500;
+  }
+
+  // 부드러운 펄스 애니메이션
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid $main200;
+    animation: pulseRing 2s infinite;
+  }
+}
+
+// 녹음 중 (발화 감지됨)
+.recording {
+  background: #ef4444;
+  color: white;
+  box-shadow: 0 2px 16px rgba(239, 68, 68, 0.5);
+  animation: recordingPulse 1s ease-in-out infinite;
+
+  &:hover:not(:disabled) {
+    background: #dc2626;
+  }
+
+  // 강한 펄스 애니메이션
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 3px solid rgba(239, 68, 68, 0.4);
+    animation: recordingRing 1s infinite;
+  }
+}
+
+// 변환 중 (STT 처리)
+.transcribing {
+  background: $sub200;
+  color: white;
+  box-shadow: 0 2px 12px rgba(95, 227, 156, 0.4);
+  pointer-events: none;
+
+  svg {
+    animation: spin 1s linear infinite;
+  }
+}
+
+// 로딩 중 (VAD 초기화)
+.loading {
+  background: $gray300;
+  color: $gray500;
+  pointer-events: none;
+
+  svg {
+    animation: spin 1.5s linear infinite;
+  }
+}
+
+// 에러 상태
+.error {
+  background: #fef2f2;
+  color: #ef4444;
+  border: 2px solid #fecaca;
+
+  &:hover:not(:disabled) {
+    background: #fee2e2;
+  }
+}
+
+// =============================================================================
+// 애니메이션
+// =============================================================================
+
+@keyframes pulseRing {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes recordingRing {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+}
+
+@keyframes recordingPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// =============================================================================
+// 상태 표시 텍스트 (툴팁)
+// =============================================================================
+
+.statusText {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: $gray700;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 10;
+
+  // 화살표
+  &::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: $gray700;
+  }
+
+  .voiceButton:hover &,
+  .listening &,
+  .recording &,
+  .transcribing & {
+    opacity: 1;
+  }
+}
+
+// 에러 메시지 스타일
+.errorText {
+  background: #ef4444;
+
+  &::after {
+    border-top-color: #ef4444;
+  }
+}
+
+// =============================================================================
+// 모바일 대응
+// =============================================================================
+
+@media (max-width: 640px) {
+  .voiceButton {
+    width: 46px;
+    height: 46px;
+
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  .statusText {
+    font-size: 0.8rem;
+    padding: 5px 10px;
+  }
+}
