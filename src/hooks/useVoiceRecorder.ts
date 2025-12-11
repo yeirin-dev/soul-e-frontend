@@ -5,12 +5,13 @@
  * - 발화 시작/종료 자동 감지
  * - 발화 종료 시 자동으로 STT 처리
  * - 변환된 텍스트 콜백으로 전달 (자동 전송)
+ * - 버튼 클릭 시에만 마이크 권한 요청 (lazy initialization)
  */
 
 'use client';
 
 import { useCallback, useRef, useEffect, useState } from 'react';
-import { useMicVAD, utils } from '@ricky0123/vad-react';
+import { MicVAD, utils } from '@ricky0123/vad-web';
 import { useDispatch, useSelector } from 'react-redux';
 import { voiceApi, type VoiceApiError } from '@/lib/api/voice';
 import {
@@ -50,10 +51,8 @@ interface UseVoiceRecorderReturn {
   isTranscribing: boolean;
   /** 에러 메시지 */
   error: string | null;
-  /** VAD 로딩 완료 여부 */
+  /** VAD 로딩 중 여부 */
   isVADLoading: boolean;
-  /** 마이크 권한 상태 */
-  micPermission: 'granted' | 'denied' | 'prompt' | null;
 }
 
 // =============================================================================
@@ -74,36 +73,18 @@ export function useVoiceRecorder({
   );
 
   // Local state
-  const [isVADLoading, setIsVADLoading] = useState(true);
-  const [micPermission, setMicPermission] = useState<'granted' | 'denied' | 'prompt' | null>(null);
+  const [isVADLoading, setIsVADLoading] = useState(false);
 
-  // Refs for callbacks (to avoid stale closure)
+  // Refs
+  const vadRef = useRef<MicVAD | null>(null);
   const onTranscriptionRef = useRef(onTranscription);
   const onErrorRef = useRef(onError);
 
+  // Update refs
   useEffect(() => {
     onTranscriptionRef.current = onTranscription;
     onErrorRef.current = onError;
   }, [onTranscription, onError]);
-
-  // Check microphone permission
-  useEffect(() => {
-    const checkMicPermission = async () => {
-      try {
-        const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-        setMicPermission(result.state as 'granted' | 'denied' | 'prompt');
-
-        result.addEventListener('change', () => {
-          setMicPermission(result.state as 'granted' | 'denied' | 'prompt');
-        });
-      } catch {
-        // Permissions API not supported, assume prompt
-        setMicPermission('prompt');
-      }
-    };
-
-    checkMicPermission();
-  }, []);
 
   // Handle STT transcription
   const handleSpeechEnd = useCallback(async (audio: Float32Array) => {
@@ -135,57 +116,75 @@ export function useVoiceRecorder({
     }
   }, [dispatch]);
 
-  // VAD configuration
-  const vad = useMicVAD({
-    startOnLoad: false,
-    positiveSpeechThreshold,
-    minSpeechMs,
-    // VAD 모델 및 worklet 파일 경로 (public/vad/)
-    baseAssetPath: '/vad/',
-    onnxWASMBasePath: '/vad/',
-    onSpeechStart: () => {
-      dispatch(setVoiceRecording(true));
-      dispatch(setVoiceError(null));
-    },
-    onSpeechEnd: (audio) => {
-      handleSpeechEnd(audio);
-    },
-    onVADMisfire: () => {
-      // 짧은 발화로 판정되어 무시됨
-      dispatch(setVoiceRecording(false));
-    },
-  });
+  // Initialize VAD (lazy - only when startListening is called)
+  const initializeVAD = useCallback(async () => {
+    if (vadRef.current) {
+      return vadRef.current;
+    }
 
-  // Update loading state
-  useEffect(() => {
-    setIsVADLoading(vad.loading);
-  }, [vad.loading]);
+    setIsVADLoading(true);
 
-  // Update listening state based on VAD
-  useEffect(() => {
-    dispatch(setVoiceListening(vad.listening));
-  }, [vad.listening, dispatch]);
+    try {
+      const vad = await MicVAD.new({
+        positiveSpeechThreshold,
+        minSpeechMs,
+        baseAssetPath: '/vad/',
+        onnxWASMBasePath: '/vad/',
+        onSpeechStart: () => {
+          dispatch(setVoiceRecording(true));
+          dispatch(setVoiceError(null));
+        },
+        onSpeechEnd: (audio) => {
+          handleSpeechEnd(audio);
+        },
+        onVADMisfire: () => {
+          dispatch(setVoiceRecording(false));
+        },
+      });
 
-  // Handle VAD errors
-  useEffect(() => {
-    if (vad.errored) {
-      const errorMessage = '음성 인식을 시작할 수 없습니다. 마이크 권한을 확인해주세요.';
+      vadRef.current = vad;
+      setIsVADLoading(false);
+      return vad;
+    } catch (err) {
+      setIsVADLoading(false);
+      const errorMessage = '마이크 권한을 허용해주세요.';
       dispatch(setVoiceError(errorMessage));
       onErrorRef.current?.(errorMessage);
+      throw err;
     }
-  }, [vad.errored, dispatch]);
+  }, [positiveSpeechThreshold, minSpeechMs, dispatch, handleSpeechEnd]);
 
-  // Start listening
-  const startListening = useCallback(() => {
+  // Start listening (initializes VAD on first call)
+  const startListening = useCallback(async () => {
     dispatch(resetVoiceMode());
-    vad.start();
-  }, [vad, dispatch]);
+
+    try {
+      const vad = await initializeVAD();
+      await vad.start();
+      dispatch(setVoiceListening(true));
+    } catch (err) {
+      console.error('Failed to start VAD:', err);
+    }
+  }, [initializeVAD, dispatch]);
 
   // Stop listening
-  const stopListening = useCallback(() => {
-    vad.pause();
+  const stopListening = useCallback(async () => {
+    if (vadRef.current) {
+      await vadRef.current.pause();
+    }
+    dispatch(setVoiceListening(false));
     dispatch(resetVoiceMode());
-  }, [vad, dispatch]);
+  }, [dispatch]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (vadRef.current) {
+        vadRef.current.destroy();
+        vadRef.current = null;
+      }
+    };
+  }, []);
 
   return {
     startListening,
@@ -195,7 +194,6 @@ export function useVoiceRecorder({
     isTranscribing,
     error,
     isVADLoading,
-    micPermission,
   };
 }
 
