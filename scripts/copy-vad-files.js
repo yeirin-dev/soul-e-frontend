@@ -35,14 +35,14 @@ vadFiles.forEach(file => {
   }
 });
 
-// ONNX Runtime WASM files
-const wasmFiles = [
+// ONNX Runtime files (WASM + MJS)
+const onnxFiles = [
+  // Main WASM + MJS (required)
   'ort-wasm-simd-threaded.wasm',
-  'ort-wasm-simd.wasm',
-  'ort-wasm.wasm',
+  'ort-wasm-simd-threaded.mjs',
 ];
 
-wasmFiles.forEach(file => {
+onnxFiles.forEach(file => {
   const src = path.join(onnxSourceDir, file);
   const dest = path.join(destDir, file);
 
@@ -50,12 +50,7 @@ wasmFiles.forEach(file => {
     fs.copyFileSync(src, dest);
     console.log(`Copied: ${file}`);
   } else {
-    // Try alternative location
-    const altSrc = path.join(onnxSourceDir, '..', file);
-    if (fs.existsSync(altSrc)) {
-      fs.copyFileSync(altSrc, dest);
-      console.log(`Copied: ${file} (from alternative location)`);
-    }
+    console.warn(`Warning: ${file} not found at ${src}`);
   }
 });
 

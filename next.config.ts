@@ -27,13 +27,19 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // WASM 파일을 위한 헤더 설정 (VAD용)
+  // VAD 정적 파일을 위한 헤더 설정
   async headers() {
     return [
       {
         source: '/vad/:path*.wasm',
         headers: [
           { key: 'Content-Type', value: 'application/wasm' },
+        ],
+      },
+      {
+        source: '/vad/:path*.mjs',
+        headers: [
+          { key: 'Content-Type', value: 'application/javascript' },
         ],
       },
       {
