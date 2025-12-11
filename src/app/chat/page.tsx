@@ -28,7 +28,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { SoulECharacter } from '@/components/SoulECharacter';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { VoiceButton } from '@/components/VoiceButton';
+import { MuteButton } from '@/components/MuteButton';
 import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
+import { useTTSPlayer } from '@/hooks/useTTSPlayer';
 
 export default function ChatPage() {
   const dispatch = useAppDispatch();
@@ -50,6 +52,8 @@ export default function ChatPage() {
 
   // 음성 인식 완료 시 메시지 전송용 ref (순환 의존성 해결)
   const sendMessageRef = useRef<(text: string) => void>(() => {});
+  // TTS speak 함수용 ref (순환 의존성 해결)
+  const speakRef = useRef<(text: string) => void>(() => {});
 
   // 세션 만료 체크
   useEffect(() => {
@@ -218,12 +222,16 @@ export default function ChatPage() {
       })
     );
 
+    // TTS를 위한 최종 응답 추적
+    let finalResponse = '';
+
     try {
       await chatApi.sendMessageStream(
         content,
         sessionId || undefined,
         (accumulated: string) => {
           dispatch(updateLastMessage(accumulated));
+          finalResponse = accumulated; // 최종 응답 추적
         },
         (data) => {
           if (data.session_id) {
@@ -237,6 +245,11 @@ export default function ChatPage() {
           }
         }
       );
+
+      // 스트리밍 완료 후 TTS 재생 (음소거 상태가 아닐 때만)
+      if (finalResponse) {
+        speakRef.current(finalResponse);
+      }
     } catch (error: any) {
       console.error('Failed to send message:', error);
       const errorMessage = error.message || '메시지 전송에 실패했습니다.';
@@ -280,6 +293,22 @@ export default function ChatPage() {
     onTranscription: handleVoiceTranscription,
     onError: handleVoiceError,
   });
+
+  // TTS Player 훅
+  const {
+    speak,
+    toggleMute,
+    isMuted: ttsIsMuted,
+    isPlaying: ttsIsPlaying,
+    isLoading: ttsIsLoading,
+  } = useTTSPlayer({
+    onError: handleVoiceError, // 음성 관련 에러 공통 핸들러 사용
+  });
+
+  // speakRef 업데이트 (순환 의존성 해결)
+  useEffect(() => {
+    speakRef.current = speak;
+  }, [speak]);
 
   // 음성 버튼 클릭 핸들러
   const handleVoiceButtonClick = useCallback(() => {
@@ -337,6 +366,14 @@ export default function ChatPage() {
           ←
         </button>
         <h2>소울이와 대화하기</h2>
+
+        {/* TTS 음소거 버튼 */}
+        <MuteButton
+          isMuted={ttsIsMuted}
+          isPlaying={ttsIsPlaying}
+          isLoading={ttsIsLoading}
+          onClick={toggleMute}
+        />
 
         {/* 검사하기 버튼 - 상태에 따라 다르게 표시 */}
         {assessmentStatusLoading ? (

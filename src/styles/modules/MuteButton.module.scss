@@ -1,0 +1,56 @@
+.muteButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #7c3aed;
+  }
+
+  &.muted {
+    color: #999;
+
+    &:hover {
+      color: #7c3aed;
+    }
+  }
+
+  &.playing {
+    color: #7c3aed;
+  }
+
+  &.loading {
+    opacity: 0.6;
+    cursor: wait;
+  }
+}
+
+.playingAnimation {
+  .wave1,
+  .wave2 {
+    animation: wave 1s ease-in-out infinite;
+  }
+
+  .wave2 {
+    animation-delay: 0.2s;
+  }
+}
+
+@keyframes wave {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}

@@ -1,8 +1,9 @@
 /**
  * Voice API Client
  *
- * Soul-E 음성 인식 API 클라이언트
+ * Soul-E 음성 인식 및 음성 합성 API 클라이언트
  * - POST /voice/transcribe: 오디오 → 텍스트 변환 (STT)
+ * - POST /voice/synthesize: 텍스트 → 오디오 변환 (TTS)
  * - GET /voice/status: 음성 서비스 상태 확인
  */
 
@@ -23,6 +24,10 @@ export interface VoiceStatusResponse {
   model: string | null;
   max_file_size_mb: number | null;
   supported_formats: string[];
+  // TTS status fields
+  tts_enabled: boolean;
+  tts_model: string | null;
+  tts_voice: string | null;
 }
 
 export interface VoiceApiError {
@@ -108,6 +113,74 @@ export const voiceApi = {
     }
 
     return response.json();
+  },
+
+  /**
+   * 텍스트를 음성으로 변환 (TTS)
+   * @param text 변환할 텍스트
+   * @returns Audio Blob (MP3)
+   */
+  synthesize: async (text: string): Promise<Blob> => {
+    const childToken = TokenManager.getChildToken();
+
+    if (!childToken) {
+      throw {
+        message: '세션이 만료되었습니다. 아동을 다시 선택해주세요.',
+        status: 401,
+        shouldRetry: false,
+      } as VoiceApiError;
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(`${SOUL_API_BASE}/voice/synthesize`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${childToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      });
+    } catch (networkError) {
+      throw {
+        message: '네트워크 연결을 확인해주세요.',
+        shouldRetry: true,
+      } as VoiceApiError;
+    }
+
+    if (!response.ok) {
+      let errorMessage = '음성 변환에 실패했습니다.';
+      let shouldRetry = true;
+
+      if (response.status === 401) {
+        errorMessage = '세션이 만료되었습니다.';
+        shouldRetry = false;
+        TokenManager.removeChildToken();
+      } else if (response.status === 400) {
+        errorMessage = '텍스트가 너무 깁니다.';
+        shouldRetry = false;
+      } else if (response.status === 503) {
+        errorMessage = 'TTS 서비스가 비활성화되어 있습니다.';
+        shouldRetry = false;
+      }
+
+      try {
+        const errorData = await response.json();
+        if (errorData.detail) {
+          errorMessage = errorData.detail;
+        }
+      } catch {
+        // JSON 파싱 실패 시 기본 메시지 사용
+      }
+
+      throw {
+        message: errorMessage,
+        status: response.status,
+        shouldRetry,
+      } as VoiceApiError;
+    }
+
+    return response.blob();
   },
 
   /**

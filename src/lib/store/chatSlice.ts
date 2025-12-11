@@ -1,13 +1,21 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import { type ChatMessage, type SessionInfo } from '@/types/api';
 
-// 음성 모드 상태 타입
+// 음성 모드 상태 타입 (STT)
 interface VoiceModeState {
   enabled: boolean;           // 음성 모드 활성화 여부
   isListening: boolean;       // VAD 청취 중
   isRecording: boolean;       // 녹음 중 (발화 감지됨)
   isTranscribing: boolean;    // STT 처리 중
   error: string | null;       // 음성 관련 에러
+}
+
+// TTS 모드 상태 타입
+interface TTSModeState {
+  isMuted: boolean;           // 음소거 상태
+  isPlaying: boolean;         // 재생 중
+  isLoading: boolean;         // TTS 변환 중
+  error: string | null;       // TTS 관련 에러
 }
 
 interface ChatState {
@@ -19,8 +27,10 @@ interface ChatState {
   sessions: SessionInfo[];
   sessionsLoading: boolean;
   historyLoading: boolean;
-  // 음성 모드 상태
+  // 음성 모드 상태 (STT)
   voiceMode: VoiceModeState;
+  // TTS 모드 상태
+  ttsMode: TTSModeState;
 }
 
 const initialState: ChatState = {
@@ -36,6 +46,12 @@ const initialState: ChatState = {
     isListening: false,
     isRecording: false,
     isTranscribing: false,
+    error: null,
+  },
+  ttsMode: {
+    isMuted: false,
+    isPlaying: false,
+    isLoading: false,
     error: null,
   },
 };
@@ -110,6 +126,27 @@ const chatSlice = createSlice({
         error: null,
       };
     },
+    // TTS 모드 액션
+    setTTSMuted: (state, action: PayloadAction<boolean>) => {
+      state.ttsMode.isMuted = action.payload;
+    },
+    setTTSPlaying: (state, action: PayloadAction<boolean>) => {
+      state.ttsMode.isPlaying = action.payload;
+    },
+    setTTSLoading: (state, action: PayloadAction<boolean>) => {
+      state.ttsMode.isLoading = action.payload;
+    },
+    setTTSError: (state, action: PayloadAction<string | null>) => {
+      state.ttsMode.error = action.payload;
+    },
+    resetTTSMode: (state) => {
+      state.ttsMode = {
+        isMuted: state.ttsMode.isMuted, // 음소거 상태는 유지
+        isPlaying: false,
+        isLoading: false,
+        error: null,
+      };
+    },
   },
 });
 
@@ -125,12 +162,18 @@ export const {
   setSessionsLoading,
   setHistoryLoading,
   loadSessionHistory,
-  // 음성 모드 액션
+  // 음성 모드 액션 (STT)
   setVoiceModeEnabled,
   setVoiceListening,
   setVoiceRecording,
   setVoiceTranscribing,
   setVoiceError,
   resetVoiceMode,
+  // TTS 모드 액션
+  setTTSMuted,
+  setTTSPlaying,
+  setTTSLoading,
+  setTTSError,
+  resetTTSMode,
 } = chatSlice.actions;
 export default chatSlice.reducer;
