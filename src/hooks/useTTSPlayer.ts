@@ -128,7 +128,7 @@ export function useTTSPlayer({
     dispatch(setTTSPlaying(false));
   }, [dispatch]);
 
-  // Speak text using TTS
+  // Speak text using TTS (streaming for faster playback)
   const speak = useCallback(async (text: string) => {
     // 음소거 상태면 요청하지 않음 (비용 절감)
     if (isMuted) {
@@ -152,43 +152,109 @@ export function useTTSPlayer({
     dispatch(setTTSLoading(true));
     dispatch(setTTSError(null));
 
+    let hasStartedPlaying = false;
+    let audio: HTMLAudioElement | null = null;
+
     try {
-      // TTS API 호출
-      const audioBlob = await voiceApi.synthesize(text);
+      // 스트리밍 TTS API 호출
+      // 첫 청크가 충분히 도착하면 바로 재생 시작 (약 32KB 이상)
+      const MIN_BYTES_TO_PLAY = 32 * 1024; // 32KB
 
-      // Blob URL 생성
-      const audioUrl = URL.createObjectURL(audioBlob);
-      audioUrlRef.current = audioUrl;
+      await voiceApi.synthesizeStream(text, (accumulatedBlob, isComplete) => {
+        // 이미 재생 시작했으면 스킵 (완료 콜백 제외)
+        if (hasStartedPlaying && !isComplete) {
+          return;
+        }
 
-      // Audio 요소 생성 및 재생
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
+        // 충분한 데이터가 쌓였거나 완료되면 재생 시작
+        if (!hasStartedPlaying && (accumulatedBlob.size >= MIN_BYTES_TO_PLAY || isComplete)) {
+          hasStartedPlaying = true;
 
-      audio.onplay = () => {
-        dispatch(setTTSPlaying(true));
-      };
+          // 이전 URL 정리
+          if (audioUrlRef.current) {
+            URL.revokeObjectURL(audioUrlRef.current);
+          }
 
-      audio.onended = () => {
-        dispatch(setTTSPlaying(false));
-        onPlayCompleteRef.current?.();
-      };
+          // 새 Audio 요소 생성
+          const audioUrl = URL.createObjectURL(accumulatedBlob);
+          audioUrlRef.current = audioUrl;
 
-      audio.onerror = () => {
-        dispatch(setTTSPlaying(false));
-        const errorMsg = '오디오 재생에 실패했습니다.';
-        dispatch(setTTSError(errorMsg));
-        onErrorRef.current?.(errorMsg);
-      };
+          audio = new Audio(audioUrl);
+          audioRef.current = audio;
 
-      await audio.play();
+          audio.onplay = () => {
+            dispatch(setTTSPlaying(true));
+            dispatch(setTTSLoading(false));
+          };
+
+          audio.onended = () => {
+            dispatch(setTTSPlaying(false));
+            onPlayCompleteRef.current?.();
+          };
+
+          audio.onerror = () => {
+            dispatch(setTTSPlaying(false));
+            dispatch(setTTSLoading(false));
+            const errorMsg = '오디오 재생에 실패했습니다.';
+            dispatch(setTTSError(errorMsg));
+            onErrorRef.current?.(errorMsg);
+          };
+
+          // 재생 시작
+          audio.play().catch((err) => {
+            console.error('Audio play error:', err);
+            dispatch(setTTSLoading(false));
+          });
+        }
+
+        // 완료 시 최종 오디오로 교체 (끊김 없이 이어서 재생)
+        if (isComplete && audio && audioRef.current === audio) {
+          // 현재 재생 위치 저장
+          const currentTime = audio.currentTime;
+          const wasPlaying = !audio.paused;
+
+          // 새 URL로 교체
+          if (audioUrlRef.current) {
+            URL.revokeObjectURL(audioUrlRef.current);
+          }
+          const finalUrl = URL.createObjectURL(accumulatedBlob);
+          audioUrlRef.current = finalUrl;
+
+          // 새 오디오 요소 생성하고 이어서 재생
+          const finalAudio = new Audio(finalUrl);
+          finalAudio.currentTime = currentTime;
+          audioRef.current = finalAudio;
+
+          finalAudio.onplay = () => {
+            dispatch(setTTSPlaying(true));
+          };
+
+          finalAudio.onended = () => {
+            dispatch(setTTSPlaying(false));
+            onPlayCompleteRef.current?.();
+          };
+
+          finalAudio.onerror = () => {
+            dispatch(setTTSPlaying(false));
+          };
+
+          if (wasPlaying) {
+            finalAudio.play().catch(console.error);
+          }
+        }
+      });
+
+      // 스트리밍이 끝났는데 아직 재생을 시작하지 못한 경우 (매우 짧은 텍스트)
+      if (!hasStartedPlaying) {
+        dispatch(setTTSLoading(false));
+      }
 
     } catch (err) {
       const apiError = err as VoiceApiError;
       const errorMessage = apiError.message || 'TTS 변환에 실패했습니다.';
       dispatch(setTTSError(errorMessage));
-      onErrorRef.current?.(errorMessage);
-    } finally {
       dispatch(setTTSLoading(false));
+      onErrorRef.current?.(errorMessage);
     }
   }, [isMuted, dispatch]);
 

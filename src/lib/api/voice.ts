@@ -184,6 +184,113 @@ export const voiceApi = {
   },
 
   /**
+   * 텍스트를 음성으로 변환 - 스트리밍 (TTS)
+   * 오디오가 생성되는대로 스트리밍으로 수신하여 더 빠른 재생 시작 가능
+   * @param text 변환할 텍스트
+   * @param onChunk 청크 수신 시 호출되는 콜백 (누적된 Blob 전달)
+   * @returns 최종 Audio Blob (MP3)
+   */
+  synthesizeStream: async (
+    text: string,
+    onChunk?: (accumulatedBlob: Blob, isComplete: boolean) => void
+  ): Promise<Blob> => {
+    const childToken = TokenManager.getChildToken();
+
+    if (!childToken) {
+      throw {
+        message: '세션이 만료되었습니다. 아동을 다시 선택해주세요.',
+        status: 401,
+        shouldRetry: false,
+      } as VoiceApiError;
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(`${SOUL_API_BASE}/voice/synthesize/stream`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${childToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      });
+    } catch (networkError) {
+      throw {
+        message: '네트워크 연결을 확인해주세요.',
+        shouldRetry: true,
+      } as VoiceApiError;
+    }
+
+    if (!response.ok) {
+      let errorMessage = '음성 변환에 실패했습니다.';
+      let shouldRetry = true;
+
+      if (response.status === 401) {
+        errorMessage = '세션이 만료되었습니다.';
+        shouldRetry = false;
+        TokenManager.removeChildToken();
+      } else if (response.status === 400) {
+        errorMessage = '텍스트가 너무 깁니다.';
+        shouldRetry = false;
+      } else if (response.status === 503) {
+        errorMessage = 'TTS 서비스가 비활성화되어 있습니다.';
+        shouldRetry = false;
+      }
+
+      try {
+        const errorData = await response.json();
+        if (errorData.detail) {
+          errorMessage = errorData.detail;
+        }
+      } catch {
+        // JSON 파싱 실패 시 기본 메시지 사용
+      }
+
+      throw {
+        message: errorMessage,
+        status: response.status,
+        shouldRetry,
+      } as VoiceApiError;
+    }
+
+    // 스트리밍 응답 처리
+    if (!response.body) {
+      // fallback: 스트리밍 미지원 시 일반 blob 반환
+      return response.blob();
+    }
+
+    const reader = response.body.getReader();
+    const chunks: ArrayBuffer[] = [];
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        break;
+      }
+
+      if (value) {
+        // Uint8Array를 ArrayBuffer로 변환
+        chunks.push(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
+
+        // 콜백으로 현재까지 누적된 데이터 전달
+        if (onChunk) {
+          const accumulatedBlob = new Blob(chunks, { type: 'audio/mp3' });
+          onChunk(accumulatedBlob, false);
+        }
+      }
+    }
+
+    const finalBlob = new Blob(chunks, { type: 'audio/mp3' });
+
+    if (onChunk) {
+      onChunk(finalBlob, true);
+    }
+
+    return finalBlob;
+  },
+
+  /**
    * 음성 서비스 상태 확인
    */
   getStatus: async (): Promise<VoiceStatusResponse> => {
