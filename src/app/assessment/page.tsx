@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppSelector } from '@/lib/hooks/redux';
 import classNames from 'classnames/bind';
@@ -37,7 +37,16 @@ const SAVE_EVERY_N_QUESTIONS = 5;
 // 한 페이지에 표시할 문항 수
 const QUESTIONS_PER_PAGE = 1;
 
+// Suspense로 감싸기 위한 래퍼 컴포넌트
 export default function AssessmentPage() {
+  return (
+    <Suspense fallback={<div className={cx('container')}><LoadingSpinner size="lg" /></div>}>
+      <AssessmentPageContent />
+    </Suspense>
+  );
+}
+
+function AssessmentPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { selectedChild, childSessionToken } = useAppSelector((state) => state.auth);
