@@ -40,7 +40,7 @@ const QUESTIONS_PER_PAGE = 1;
 // Suspense로 감싸기 위한 래퍼 컴포넌트
 export default function AssessmentPage() {
   return (
-    <Suspense fallback={<div className={cx('container')}><LoadingSpinner size="lg" /></div>}>
+    <Suspense fallback={<div className={cx('container')}><LoadingSpinner /></div>}>
       <AssessmentPageContent />
     </Suspense>
   );
