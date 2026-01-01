@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppSelector } from '@/lib/hooks/redux';
 import classNames from 'classnames/bind';
 
@@ -11,6 +11,12 @@ import type {
   AssessmentQuestion,
   AssessmentResult,
   ChildAssessmentStatus,
+  AssessmentTypeValue,
+} from '@/types/assessment';
+import {
+  ASSESSMENT_TYPES,
+  ASSESSMENT_TYPE_INFO,
+  getAssessmentTypeKey,
 } from '@/types/assessment';
 
 import { SoulECharacter } from '@/components/SoulECharacter';
@@ -33,7 +39,13 @@ const QUESTIONS_PER_PAGE = 1;
 
 export default function AssessmentPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { selectedChild, childSessionToken } = useAppSelector((state) => state.auth);
+
+  // URL에서 검사 타입 읽기 (기본값: KPRC)
+  const assessmentTypeValue = (searchParams.get('type') as AssessmentTypeValue) || ASSESSMENT_TYPES.KPRC;
+  const assessmentTypeKey = getAssessmentTypeKey(assessmentTypeValue);
+  const assessmentInfo = assessmentTypeKey ? ASSESSMENT_TYPE_INFO[assessmentTypeKey] : ASSESSMENT_TYPE_INFO.KPRC;
 
   // 상태 관리
   const [phase, setPhase] = useState<AssessmentPhase>('loading');
@@ -87,8 +99,8 @@ export default function AssessmentPage() {
 
     const loadAssessmentStatus = async () => {
       try {
-        // 아동별 검사 상태 조회
-        const status = await assessmentApi.getChildAssessmentStatus(selectedChild.id);
+        // 아동별 검사 상태 조회 (검사 타입별)
+        const status = await assessmentApi.getChildAssessmentStatus(selectedChild.id, assessmentTypeValue);
         setAssessmentStatus(status);
 
         // 상태에 따라 phase 결정
@@ -110,13 +122,13 @@ export default function AssessmentPage() {
     };
 
     loadAssessmentStatus();
-  }, [childSessionToken, selectedChild, router]);
+  }, [childSessionToken, selectedChild, router, assessmentTypeValue]);
 
-  // 문항 데이터 로드
+  // 문항 데이터 로드 (검사 타입별)
   useEffect(() => {
     const loadQuestions = async () => {
       try {
-        const data = await assessmentApi.getQuestions('KPRC_CO_SG_E');
+        const data = await assessmentApi.getQuestions(assessmentTypeValue);
         setQuestions(data.questions);
       } catch (err) {
         console.error('Failed to load questions:', err);
@@ -125,7 +137,7 @@ export default function AssessmentPage() {
     };
 
     loadQuestions();
-  }, []);
+  }, [assessmentTypeValue]);
 
   // 진행 중인 세션의 답변 복원
   useEffect(() => {
@@ -251,6 +263,7 @@ export default function AssessmentPage() {
           gender: selectedChild.gender === '남자' ? 'M' : 'F',
           birth_date: selectedChild.birth_date,
           school_grade: calculateGrade(selectedChild.birth_date),
+          assessment_type: assessmentTypeValue,
         });
         setSession(currentSession);
       }
@@ -279,6 +292,7 @@ export default function AssessmentPage() {
         gender: selectedChild.gender === '남자' ? 'M' : 'F',
         birth_date: selectedChild.birth_date,
         school_grade: calculateGrade(selectedChild.birth_date),
+        assessment_type: assessmentTypeValue,
       });
 
       setSession(newSession);
@@ -568,9 +582,9 @@ export default function AssessmentPage() {
           </div>
 
           <div className={cx('completedContent')}>
-            <h1>검사를 이미 완료했어요!</h1>
+            <h1>{assessmentInfo.shortName} 검사 완료!</h1>
             <p className={cx('completedMessage')}>
-              {selectedChild.name} 친구는 이미 심리검사를 완료했어요.
+              {selectedChild.name} 친구는 이미 {assessmentInfo.name}를 완료했어요.
             </p>
             <p className={cx('completedSubMessage')}>
               검사 결과는 보호자님께 전달되었어요.
@@ -671,6 +685,8 @@ export default function AssessmentPage() {
                 <span className={cx('value')}>
                   {assessmentStatus?.has_in_progress
                     ? '남은 시간에 따라 달라요'
+                    : assessmentInfo.questionCount <= 30
+                    ? '5~10분 정도'
                     : '20~30분 정도'}
                 </span>
               </div>
@@ -754,7 +770,7 @@ export default function AssessmentPage() {
               <span>↑↓ 선택</span>
               <span>Enter 확인</span>
               <span>←→ 이전/다음</span>
-              <span>1~4 바로선택</span>
+              <span>1~{currentQuestion.choices.length} 바로선택</span>
             </div>
 
             <div className={cx('navigationButtons')}>
@@ -817,7 +833,7 @@ export default function AssessmentPage() {
               </div>
             )}
 
-            <h2>{result.is_success ? '검사 끝!' : '앗, 문제가 생겼어요'}</h2>
+            <h2>{result.is_success ? `${assessmentInfo.shortName} 검사 끝!` : '앗, 문제가 생겼어요'}</h2>
 
             <p className={cx('resultMessage')}>
               {result.is_success

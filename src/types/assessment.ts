@@ -1,4 +1,55 @@
-// Assessment Types for KPRC Psychological Test
+// Assessment Types for Psychological Tests (CRTES-R, SDQ-A, KPRC)
+
+// Assessment Type Constants
+export const ASSESSMENT_TYPES = {
+  CRTES_R: 'CRTES_R',
+  SDQ_A: 'SDQ_A',
+  KPRC: 'KPRC_CO_SG_E',
+} as const;
+
+export type AssessmentTypeKey = keyof typeof ASSESSMENT_TYPES;
+export type AssessmentTypeValue = (typeof ASSESSMENT_TYPES)[AssessmentTypeKey];
+
+// Assessment Type Information
+export const ASSESSMENT_TYPE_INFO: Record<
+  AssessmentTypeKey,
+  {
+    name: string;
+    shortName: string;
+    questionCount: number;
+    description: string;
+    isSelfScoring: boolean;
+  }
+> = {
+  CRTES_R: {
+    name: '아동 외상 반응 척도',
+    shortName: 'CRTES-R',
+    questionCount: 23,
+    description: '외상 경험과 관련된 반응을 측정합니다',
+    isSelfScoring: true,
+  },
+  SDQ_A: {
+    name: '강점·난점 설문지',
+    shortName: 'SDQ-A',
+    questionCount: 25,
+    description: '강점과 어려움을 종합적으로 평가합니다',
+    isSelfScoring: true,
+  },
+  KPRC: {
+    name: '한국아동인성평정척도',
+    shortName: 'KPRC',
+    questionCount: 164,
+    description: '아동의 심리적 적응과 정신건강 상태를 종합 평가합니다',
+    isSelfScoring: false,
+  },
+};
+
+// Helper function to get assessment type key from value
+export function getAssessmentTypeKey(value: string): AssessmentTypeKey | null {
+  const entries = Object.entries(ASSESSMENT_TYPES) as [AssessmentTypeKey, string][];
+  const found = entries.find(([, v]) => v === value);
+  return found ? found[0] : null;
+}
 
 export interface AssessmentQuestion {
   number: number;

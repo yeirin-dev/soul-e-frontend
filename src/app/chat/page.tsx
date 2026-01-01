@@ -18,9 +18,14 @@ import {
 } from '@/lib/store/chatSlice';
 import { clearChildSession, isChildSessionExpired } from '@/lib/store/authSlice';
 import { chatApi, sessionApi } from '@/lib/api';
-import { assessmentApi } from '@/lib/api/assessment';
+import { assessmentApi, type AllAssessmentStatuses } from '@/lib/api/assessment';
 import { type ChatMessage } from '@/types/api';
-import { type ChildAssessmentStatus } from '@/types/assessment';
+import {
+  type ChildAssessmentStatus,
+  ASSESSMENT_TYPES,
+  ASSESSMENT_TYPE_INFO,
+  type AssessmentTypeKey,
+} from '@/types/assessment';
 import styles from '@/styles/modules/ChatPage.module.scss';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -44,7 +49,7 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [retryMessage, setRetryMessage] = useState<string | null>(null);
   const [showSessionList, setShowSessionList] = useState(false);
-  const [assessmentStatus, setAssessmentStatus] = useState<ChildAssessmentStatus | null>(null);
+  const [assessmentStatuses, setAssessmentStatuses] = useState<AllAssessmentStatuses | null>(null);
   const [assessmentStatusLoading, setAssessmentStatusLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -120,16 +125,16 @@ export default function ChatPage() {
     }
   }, [childSessionToken, selectedChild, dispatch]);
 
-  // 검사 상태 불러오기
-  const fetchAssessmentStatus = useCallback(async () => {
+  // 모든 검사 상태 불러오기
+  const fetchAssessmentStatuses = useCallback(async () => {
     if (!selectedChild) return;
 
     setAssessmentStatusLoading(true);
     try {
-      const status = await assessmentApi.getChildAssessmentStatus(selectedChild.id);
-      setAssessmentStatus(status);
+      const statuses = await assessmentApi.getAllAssessmentStatuses(selectedChild.id);
+      setAssessmentStatuses(statuses);
     } catch (error) {
-      console.error('Failed to fetch assessment status:', error);
+      console.error('Failed to fetch assessment statuses:', error);
     } finally {
       setAssessmentStatusLoading(false);
     }
@@ -138,8 +143,8 @@ export default function ChatPage() {
   // 페이지 로드 시 세션 목록 및 검사 상태 불러오기
   useEffect(() => {
     fetchSessions();
-    fetchAssessmentStatus();
-  }, [fetchSessions, fetchAssessmentStatus]);
+    fetchAssessmentStatuses();
+  }, [fetchSessions, fetchAssessmentStatuses]);
 
   // 세션 히스토리 불러오기
   const loadSession = async (targetSessionId: string) => {
@@ -375,56 +380,76 @@ export default function ChatPage() {
           onClick={toggleMute}
         />
 
-        {/* 검사하기 버튼 - 상태에 따라 다르게 표시 */}
-        {assessmentStatusLoading ? (
-          <button
-            className={`${styles.assessmentButton} ${styles.loading}`}
-            type="button"
-            disabled
-          >
-            <LoadingSpinner />
-          </button>
-        ) : assessmentStatus?.has_completed ? (
-          <button
-            className={`${styles.assessmentButton} ${styles.completed}`}
-            type="button"
-            disabled
-            title="검사가 이미 완료되었습니다"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
-              <path d="M9 12l2 2 4-4" />
-              <circle cx="12" cy="12" r="10" />
-            </svg>
-            검사 완료
-          </button>
-        ) : assessmentStatus?.has_in_progress ? (
-          <button
-            className={`${styles.assessmentButton} ${styles.inProgress}`}
-            onClick={() => router.push('/assessment')}
-            type="button"
-            title={assessmentStatus.message}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
-              <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
-              <rect x="9" y="3" width="6" height="4" rx="1" />
-              <path d="M9 12h6M9 16h6" />
-            </svg>
-            이어서 검사
-          </button>
-        ) : (
-          <button
-            className={styles.assessmentButton}
-            onClick={() => router.push('/assessment')}
-            type="button"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
-              <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
-              <rect x="9" y="3" width="6" height="4" rx="1" />
-              <path d="M9 12h6M9 16h6" />
-            </svg>
-            검사하기
-          </button>
-        )}
+        {/* 검사 버튼들 - CRTES-R, SDQ-A, KPRC 순서 */}
+        <div className={styles.assessmentButtons}>
+          {assessmentStatusLoading ? (
+            <button
+              className={`${styles.assessmentButton} ${styles.loading}`}
+              type="button"
+              disabled
+            >
+              <LoadingSpinner />
+            </button>
+          ) : (
+            (['CRTES_R', 'SDQ_A', 'KPRC'] as const).map((typeKey) => {
+              const status = assessmentStatuses?.[typeKey];
+              const info = ASSESSMENT_TYPE_INFO[typeKey];
+              const assessmentType = ASSESSMENT_TYPES[typeKey];
+
+              if (status?.has_completed) {
+                return (
+                  <button
+                    key={typeKey}
+                    className={`${styles.assessmentButton} ${styles.completed}`}
+                    type="button"
+                    disabled
+                    title={`${info.name} 검사가 완료되었습니다`}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                      <path d="M9 12l2 2 4-4" />
+                      <circle cx="12" cy="12" r="10" />
+                    </svg>
+                    {info.shortName}
+                  </button>
+                );
+              }
+
+              if (status?.has_in_progress) {
+                return (
+                  <button
+                    key={typeKey}
+                    className={`${styles.assessmentButton} ${styles.inProgress}`}
+                    onClick={() => router.push(`/assessment?type=${assessmentType}`)}
+                    type="button"
+                    title={status.message || `${info.name} 이어서 검사`}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                      <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+                      <rect x="9" y="3" width="6" height="4" rx="1" />
+                    </svg>
+                    {info.shortName}
+                  </button>
+                );
+              }
+
+              return (
+                <button
+                  key={typeKey}
+                  className={styles.assessmentButton}
+                  onClick={() => router.push(`/assessment?type=${assessmentType}`)}
+                  type="button"
+                  title={info.name}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+                    <rect x="9" y="3" width="6" height="4" rx="1" />
+                  </svg>
+                  {info.shortName}
+                </button>
+              );
+            })
+          )}
+        </div>
 
         {/* 세션 선택 드롭다운 */}
         <div className={styles.sessionSelector} ref={sessionListRef}>
