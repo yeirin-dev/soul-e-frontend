@@ -182,6 +182,61 @@ export const TokenManager = {
   clearAll: (): void => {
     TokenManager.removeYeirinToken();
     TokenManager.removeChildToken();
+    TokenManager.removeInstitutionInfo();
+  },
+
+  // ==========================================================================
+  // Institution Info (시설 기반 인증)
+  // ==========================================================================
+
+  getInstitutionInfo: (): {
+    id: string | null;
+    type: string | null;
+    name: string | null;
+    district: string | null;
+    isPasswordChanged: boolean;
+  } => {
+    if (typeof window === 'undefined') {
+      return { id: null, type: null, name: null, district: null, isPasswordChanged: true };
+    }
+    return {
+      id: localStorage.getItem('institutionId'),
+      type: localStorage.getItem('institutionType'),
+      name: localStorage.getItem('institutionName'),
+      district: localStorage.getItem('institutionDistrict'),
+      isPasswordChanged: localStorage.getItem('isPasswordChanged') === 'true',
+    };
+  },
+
+  setInstitutionInfo: (info: {
+    id: string;
+    type: string;
+    name: string;
+    district?: string;
+    isPasswordChanged: boolean;
+  }): void => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('institutionId', info.id);
+    localStorage.setItem('institutionType', info.type);
+    localStorage.setItem('institutionName', info.name);
+    if (info.district) {
+      localStorage.setItem('institutionDistrict', info.district);
+    }
+    localStorage.setItem('isPasswordChanged', String(info.isPasswordChanged));
+  },
+
+  removeInstitutionInfo: (): void => {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem('institutionId');
+    localStorage.removeItem('institutionType');
+    localStorage.removeItem('institutionName');
+    localStorage.removeItem('institutionDistrict');
+    localStorage.removeItem('isPasswordChanged');
+  },
+
+  setPasswordChanged: (changed: boolean): void => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('isPasswordChanged', String(changed));
   },
 };
 

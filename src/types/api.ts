@@ -1,4 +1,46 @@
-// Authentication Types
+// =============================================================================
+// Institution Types (New simplified auth)
+// =============================================================================
+
+export type InstitutionType = 'CARE_FACILITY' | 'COMMUNITY_CENTER';
+
+export interface DistrictFacility {
+  id: string;
+  name: string;
+  facilityType: InstitutionType;
+  district: string;
+  address: string;
+}
+
+export interface InstitutionLoginRequest {
+  facilityId: string;
+  facilityType: InstitutionType;
+  password: string;
+}
+
+export interface InstitutionLoginResponse {
+  accessToken: string;
+  refreshToken: string;
+  institution: {
+    id: string;
+    name: string;
+    facilityType: InstitutionType;
+    district: string;
+    isPasswordChanged: boolean;
+  };
+}
+
+export interface ChangeInstitutionPasswordRequest {
+  facilityId: string;
+  facilityType: InstitutionType;
+  currentPassword: string;
+  newPassword: string;
+}
+
+// =============================================================================
+// Legacy Authentication Types (deprecated)
+// =============================================================================
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -15,14 +57,27 @@ export interface LoginResponse {
   };
 }
 
+// =============================================================================
+// Teacher/Institution Info (supports both auth methods)
+// =============================================================================
+
 export interface TeacherInfo {
-  user_id: string;
-  email: string;
-  real_name: string;
-  guardian_type: string;
-  institution_id: string;
-  institution_type: string;
-  institution_name: string;
+  // Primary fields (always available for institution-based auth)
+  facility_id: string;
+  facility_type: string;
+  facility_name: string;
+  district: string | null;
+
+  // Legacy fields (optional, for backward compatibility)
+  user_id: string | null;
+  email: string | null;
+  real_name: string | null;
+  guardian_type: string | null;
+
+  // Aliases (backward compatibility)
+  institution_id?: string;
+  institution_type?: string;
+  institution_name?: string;
 }
 
 export interface ChildInfo {

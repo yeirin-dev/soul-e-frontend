@@ -35,6 +35,11 @@ import {
   type VerifyPinResponse,
   type ChangePinRequest,
   type ChangePinResponse,
+  type InstitutionType,
+  type DistrictFacility,
+  type InstitutionLoginRequest,
+  type InstitutionLoginResponse,
+  type ChangeInstitutionPasswordRequest,
 } from '@/types/api';
 
 // =============================================================================
@@ -151,6 +156,82 @@ export const authApi = {
   changePin: async (request: ChangePinRequest): Promise<ChangePinResponse> => {
     const response = await soulClient.post<ChangePinResponse>('/auth/pin/change', request);
     return response.data;
+  },
+
+  // ==========================================================================
+  // Institution-based Auth (시설 기반 인증 - 신규)
+  // ==========================================================================
+
+  /**
+   * 구/군 목록 조회
+   * Yeirin Backend (3000)
+   */
+  getDistricts: async (): Promise<string[]> => {
+    const response = await yeirinClient.get<string[]>('/api/v1/auth/districts');
+    return response.data;
+  },
+
+  /**
+   * 구/군별 시설 목록 조회
+   * Yeirin Backend (3000)
+   */
+  getFacilities: async (district: string): Promise<DistrictFacility[]> => {
+    const response = await yeirinClient.get<DistrictFacility[]>(
+      `/api/v1/auth/facilities?district=${encodeURIComponent(district)}`
+    );
+    return response.data;
+  },
+
+  /**
+   * 시설 기반 로그인
+   * Yeirin Backend (3000) - 성공 시 yeirin_token 발급
+   */
+  institutionLogin: async (credentials: InstitutionLoginRequest): Promise<InstitutionLoginResponse> => {
+    const response = await yeirinClient.post<InstitutionLoginResponse>(
+      '/api/v1/auth/institution/login',
+      credentials
+    );
+
+    // 토큰 저장
+    if (response.data.accessToken) {
+      TokenManager.setYeirinToken(response.data.accessToken);
+    }
+
+    // 시설 정보 저장
+    TokenManager.setInstitutionInfo({
+      id: response.data.institution.id,
+      type: response.data.institution.facilityType,
+      name: response.data.institution.name,
+      district: response.data.institution.district,
+      isPasswordChanged: response.data.institution.isPasswordChanged,
+    });
+
+    return response.data;
+  },
+
+  /**
+   * 시설 비밀번호 변경
+   * Yeirin Backend (3000)
+   */
+  changeInstitutionPassword: async (
+    currentPassword: string,
+    newPassword: string
+  ): Promise<void> => {
+    const institutionInfo = TokenManager.getInstitutionInfo();
+
+    if (!institutionInfo.id || !institutionInfo.type) {
+      throw new Error('시설 정보를 찾을 수 없습니다.');
+    }
+
+    await yeirinClient.post('/api/v1/auth/institution/change-password', {
+      facilityId: institutionInfo.id,
+      facilityType: institutionInfo.type as InstitutionType,
+      currentPassword,
+      newPassword,
+    } as ChangeInstitutionPasswordRequest);
+
+    // 비밀번호 변경 성공 시 상태 업데이트
+    TokenManager.setPasswordChanged(true);
   },
 };
 
