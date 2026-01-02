@@ -526,11 +526,11 @@ export default function ChatPage() {
           <div className={styles.emptyState}>
             <SoulECharacter state="greeting" size="large" />
             <div className={styles.greetingText}>
-              <p className={styles.greetingTitle}>안녕! 나는 소울이야 👋</p>
+              <p className={styles.greetingTitle}>안녕 나는 소울이야 👋</p>
               <p className={styles.greetingDesc}>
-                남들에게 말하지 못할 고민이 있니?
+                혼자 고민하고 있는 일이 있니?
                 <br />
-                언제 어디서나 소울이가 도와줄게!
+                언제 어디서나 소울이가 함께할게!
               </p>
             </div>
           </div>
