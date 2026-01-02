@@ -1,12 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks/redux';
-import { fetchChildren, selectChildSession, clearError, logout, setSelectedChild, clearPinState } from '@/lib/store/authSlice';
+import { fetchChildren, clearError, logout, setSelectedChild, clearPinState } from '@/lib/store/authSlice';
 import { clearChat } from '@/lib/store/chatSlice';
 import { type ChildInfo } from '@/types/api';
-import { SoulECharacter } from '@/components/SoulECharacter';
 import styles from '@/styles/modules/ChildSelectPage.module.scss';
 
 export default function ChildSelectPage() {
@@ -22,6 +21,7 @@ export default function ChildSelectPage() {
   } = useAppSelector((state) => state.auth);
 
   const [selectingChildId, setSelectingChildId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (!yeirinToken) {
@@ -54,6 +54,25 @@ export default function ChildSelectPage() {
     }
   }, [error, dispatch]);
 
+  // 검색 필터링
+  const filteredChildren = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return children;
+    }
+    const query = searchQuery.toLowerCase().trim();
+    return children.filter((child) =>
+      child.name.toLowerCase().includes(query) ||
+      child.age.toString().includes(query)
+    );
+  }, [children, searchQuery]);
+
+  // 이용 가능/불가 분리
+  const { eligibleChildren, ineligibleChildren } = useMemo(() => {
+    const eligible = filteredChildren.filter(c => c.is_eligible);
+    const ineligible = filteredChildren.filter(c => !c.is_eligible);
+    return { eligibleChildren: eligible, ineligibleChildren: ineligible };
+  }, [filteredChildren]);
+
   const handleSelectChild = async (child: ChildInfo) => {
     if (!child.is_eligible) {
       return;
@@ -70,10 +89,8 @@ export default function ChildSelectPage() {
 
     // PIN 설정 여부에 따라 라우팅
     if (child.has_pin) {
-      // PIN이 있으면 인증 페이지로
       router.push('/pin/verify');
     } else {
-      // PIN이 없으면 설정 페이지로
       router.push('/pin/setup');
     }
 
@@ -90,22 +107,36 @@ export default function ChildSelectPage() {
     dispatch(fetchChildren());
   };
 
+  const totalCount = children.length;
   const eligibleCount = children.filter(c => c.is_eligible).length;
+
+  // 시설 유형 라벨
+  const institutionTypeLabel = teacher?.institution_type === 'care_facility'
+    ? '양육시설'
+    : teacher?.institution_type === 'community_child_center'
+      ? '지역아동센터'
+      : '';
 
   return (
     <div className={styles.container}>
       <header className={styles.header}>
         <div className={styles.headerTop}>
-          <h1>아동 선택</h1>
+          <div className={styles.titleSection}>
+            <h1>아동 선택</h1>
+            {teacher && (
+              <span className={styles.institutionBadge}>
+                {institutionTypeLabel && <span className={styles.typeLabel}>{institutionTypeLabel}</span>}
+                {teacher.institution_name}
+              </span>
+            )}
+          </div>
           <button onClick={handleLogout} className={styles.logoutButton} type="button">
             로그아웃
           </button>
         </div>
-        {teacher && (
-          <p className={styles.teacherInfo}>
-            {teacher.institution_name} · {teacher.real_name} 선생님
-          </p>
-        )}
+        <p className={styles.subtitle}>
+          소울이와 대화할 아동을 선택해주세요
+        </p>
       </header>
 
       {/* 에러 배너 */}
@@ -117,12 +148,35 @@ export default function ChildSelectPage() {
       )}
 
       <main className={styles.mainContent}>
-        {/* 소울이 캐릭터 섹션 */}
-        <div className={styles.characterSection}>
-          <SoulECharacter state="idle" size="large" className={styles.soulE} />
-          <p className={styles.greeting}>
-            대화할 <span>친구</span>를 선택해주세요!
-          </p>
+        {/* 검색 및 통계 바 */}
+        <div className={styles.toolbar}>
+          <div className={styles.searchBox}>
+            <svg className={styles.searchIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
+            </svg>
+            <input
+              type="text"
+              placeholder="이름으로 검색..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={styles.searchInput}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className={styles.clearButton}
+                type="button"
+              >
+                ×
+              </button>
+            )}
+          </div>
+          <div className={styles.stats}>
+            <span className={styles.total}>전체 {totalCount}명</span>
+            <span className={styles.divider}>·</span>
+            <span className={styles.eligible}>이용 가능 {eligibleCount}명</span>
+          </div>
         </div>
 
         <div className={styles.listContainer}>
@@ -137,56 +191,99 @@ export default function ChildSelectPage() {
           {/* 빈 상태 */}
           {!childrenLoading && children.length === 0 && !error && (
             <div className={styles.emptyState}>
-              <p>등록된 아동이 없습니다.</p>
+              <div className={styles.emptyIcon}>👶</div>
+              <p>등록된 아동이 없습니다</p>
               <button onClick={handleRefresh} className={styles.refreshButton} type="button">
                 새로고침
               </button>
             </div>
           )}
 
+          {/* 검색 결과 없음 */}
+          {!childrenLoading && children.length > 0 && filteredChildren.length === 0 && (
+            <div className={styles.emptyState}>
+              <div className={styles.emptyIcon}>🔍</div>
+              <p>"{searchQuery}"에 해당하는 아동이 없습니다</p>
+              <button
+                onClick={() => setSearchQuery('')}
+                className={styles.refreshButton}
+                type="button"
+              >
+                검색 초기화
+              </button>
+            </div>
+          )}
+
           {/* 아동 목록 */}
-          {!childrenLoading && children.length > 0 && (
-            <>
-              <div className={styles.summary}>
-                <span>전체 {children.length}명</span>
-                <span className={styles.eligible}>이용 가능 {eligibleCount}명</span>
-              </div>
+          {!childrenLoading && filteredChildren.length > 0 && (
+            <div className={styles.scrollArea}>
+              {/* 이용 가능 아동 */}
+              {eligibleChildren.length > 0 && (
+                <section className={styles.section}>
+                  <h2 className={styles.sectionTitle}>
+                    <span className={styles.dot} />
+                    이용 가능
+                    <span className={styles.count}>{eligibleChildren.length}</span>
+                  </h2>
+                  <div className={styles.grid}>
+                    {eligibleChildren.map((child: ChildInfo) => {
+                      const isSelecting = selectingChild && selectingChildId === child.id;
 
-              <div className={styles.grid}>
-                {children.map((child: ChildInfo) => {
-                  const isSelecting = selectingChild && selectingChildId === child.id;
+                      return (
+                        <button
+                          key={child.id}
+                          className={`${styles.card} ${isSelecting ? styles.selecting : ''}`}
+                          onClick={() => handleSelectChild(child)}
+                          disabled={selectingChild}
+                          type="button"
+                        >
+                          {isSelecting && (
+                            <div className={styles.cardOverlay}>
+                              <div className={styles.smallSpinner} />
+                            </div>
+                          )}
+                          <div className={styles.avatar}>
+                            {child.gender === 'MALE' || child.gender === 'M' ? '👦' : '👧'}
+                          </div>
+                          <div className={styles.info}>
+                            <h3>{child.name}</h3>
+                            <p>{child.age}세</p>
+                          </div>
+                          {!child.has_pin && (
+                            <span className={styles.newBadge}>첫 방문</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
 
-                  return (
-                    <button
-                      key={child.id}
-                      className={`${styles.card} ${!child.is_eligible ? styles.disabled : ''} ${isSelecting ? styles.selecting : ''}`}
-                      onClick={() => handleSelectChild(child)}
-                      disabled={!child.is_eligible || selectingChild}
-                      type="button"
-                    >
-                      {isSelecting && (
-                        <div className={styles.cardOverlay}>
-                          <div className={styles.smallSpinner} />
+              {/* 이용 불가 아동 */}
+              {ineligibleChildren.length > 0 && (
+                <section className={styles.section}>
+                  <h2 className={`${styles.sectionTitle} ${styles.disabled}`}>
+                    <span className={styles.dot} />
+                    이용 불가 (9-15세만 가능)
+                    <span className={styles.count}>{ineligibleChildren.length}</span>
+                  </h2>
+                  <div className={styles.grid}>
+                    {ineligibleChildren.map((child: ChildInfo) => (
+                      <div key={child.id} className={`${styles.card} ${styles.disabled}`}>
+                        <div className={styles.avatar}>
+                          {child.gender === 'MALE' || child.gender === 'M' ? '👦' : '👧'}
                         </div>
-                      )}
-                      <div className={styles.avatar}>
-                        {child.gender === 'MALE' || child.gender === 'M' ? '👦' : '👧'}
+                        <div className={styles.info}>
+                          <h3>{child.name}</h3>
+                          <p>{child.age}세</p>
+                        </div>
+                        <span className={styles.badge}>이용 불가</span>
                       </div>
-                      <div className={styles.info}>
-                        <h3>{child.name}</h3>
-                        <p>{child.age}세</p>
-                        {!child.is_eligible && (
-                          <span className={styles.badge}>9-15세만 이용 가능</span>
-                        )}
-                        {child.is_eligible && !child.has_pin && (
-                          <span className={styles.newBadge}>🔐 첫 방문</span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
           )}
         </div>
       </main>
