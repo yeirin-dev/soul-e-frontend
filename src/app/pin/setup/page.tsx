@@ -139,15 +139,15 @@ export default function PinSetupPage() {
               <p className={styles.instruction}>
                 {step === 'input' ? (
                   <>
-                    <span className={styles.highlight}>나만의 비밀번호</span>를 만들어볼까요?
+                    <span className={styles.highlight}>우리만의 비밀번호</span>를 만들어볼까?
                     <br />
-                    숫자 4개를 눌러주세요!
+                    숫자 4개를 눌러줘!
                   </>
                 ) : (
                   <>
-                    좋아요! 이제 한 번 더
+                    좋아! 이제 한 번 더
                     <br />
-                    <span className={styles.highlight}>똑같이</span> 눌러주세요!
+                    <span className={styles.highlight}>똑같이</span> 눌러줘!
                   </>
                 )}
               </p>

@@ -110,10 +110,11 @@ export default function ChildSelectPage() {
   const totalCount = children.length;
   const eligibleCount = children.filter(c => c.is_eligible).length;
 
-  // 시설 유형 라벨
-  const institutionTypeLabel = teacher?.institution_type === 'care_facility'
+  // 시설 유형 라벨 (facility_type 사용 - 대문자 형식)
+  const facilityType = teacher?.facility_type?.toUpperCase();
+  const institutionTypeLabel = facilityType === 'CARE_FACILITY'
     ? '양육시설'
-    : teacher?.institution_type === 'community_child_center'
+    : facilityType === 'COMMUNITY_CENTER'
       ? '지역아동센터'
       : '';
 
@@ -123,10 +124,10 @@ export default function ChildSelectPage() {
         <div className={styles.headerTop}>
           <div className={styles.titleSection}>
             <h1>아동 선택</h1>
-            {teacher && (
+            {teacher && teacher.facility_name && (
               <span className={styles.institutionBadge}>
                 {institutionTypeLabel && <span className={styles.typeLabel}>{institutionTypeLabel}</span>}
-                {teacher.institution_name}
+                {teacher.facility_name}
               </span>
             )}
           </div>

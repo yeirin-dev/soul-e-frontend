@@ -131,7 +131,7 @@ export default function PinVerifyPage() {
                 </span>
               </h2>
               <p className={styles.instruction}>
-                <span className={styles.highlight}>비밀번호</span>를 눌러주세요!
+                <span className={styles.highlight}>우리만의 비밀번호</span>를 누르고 이야기해보자!
               </p>
             </>
           )}
