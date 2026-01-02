@@ -116,7 +116,7 @@ export default function AuthPage() {
 
   return (
     <>
-      <InsideLayout title={`안녕하세요!\n시설 로그인을 해주세요!`}>
+      <InsideLayout title={`환영합니다.\n계정으로 로그인해주세요.`}>
         <form className={styles.authSection} onSubmit={handleSubmit}>
           <div className={styles.characterContainer}>
             <SoulECharacter state="greeting" size="large" className={styles.soulE} />
