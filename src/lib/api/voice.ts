@@ -37,6 +37,16 @@ export interface VoiceApiError {
   isAborted?: boolean;
 }
 
+/** PCM 오디오 형식 정보 */
+export interface PCMAudioFormat {
+  sampleRate: number;
+  channels: number;
+  bitsPerSample: number;
+}
+
+/** PCM 스트리밍 청크 콜백 */
+export type PCMChunkCallback = (chunk: ArrayBuffer, format: PCMAudioFormat) => void;
+
 // =============================================================================
 // Voice API
 // =============================================================================
@@ -316,6 +326,137 @@ export const voiceApi = {
     }
 
     return finalBlob;
+  },
+
+  /**
+   * 텍스트를 PCM raw audio로 변환 - 스트리밍 (TTS)
+   * Web Audio API로 첫 청크 도착 즉시 재생 가능
+   *
+   * PCM 형식: 16-bit signed little-endian, 24kHz, mono
+   *
+   * @param text 변환할 텍스트
+   * @param onChunk 청크 수신 시 호출되는 콜백 (ArrayBuffer + format 정보)
+   * @param signal AbortSignal for cancellation
+   */
+  synthesizeStreamPCM: async (
+    text: string,
+    onChunk: PCMChunkCallback,
+    signal?: AbortSignal
+  ): Promise<void> => {
+    const childToken = TokenManager.getChildToken();
+
+    if (!childToken) {
+      throw {
+        message: '세션이 만료되었습니다. 아동을 다시 선택해주세요.',
+        status: 401,
+        shouldRetry: false,
+      } as VoiceApiError;
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(`${SOUL_API_BASE}/voice/synthesize/stream/pcm`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${childToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+        signal,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw {
+          message: 'TTS 요청이 취소되었습니다.',
+          shouldRetry: false,
+          isAborted: true,
+        } as VoiceApiError;
+      }
+      throw {
+        message: '네트워크 연결을 확인해주세요.',
+        shouldRetry: true,
+      } as VoiceApiError;
+    }
+
+    if (!response.ok) {
+      let errorMessage = '음성 변환에 실패했습니다.';
+      let shouldRetry = true;
+
+      if (response.status === 401) {
+        errorMessage = '세션이 만료되었습니다.';
+        shouldRetry = false;
+        TokenManager.removeChildToken();
+      } else if (response.status === 400) {
+        errorMessage = '텍스트가 너무 깁니다.';
+        shouldRetry = false;
+      } else if (response.status === 503) {
+        errorMessage = 'TTS 서비스가 비활성화되어 있습니다.';
+        shouldRetry = false;
+      }
+
+      try {
+        const errorData = await response.json();
+        if (errorData.detail) {
+          errorMessage = errorData.detail;
+        }
+      } catch {
+        // JSON 파싱 실패 시 기본 메시지 사용
+      }
+
+      throw {
+        message: errorMessage,
+        status: response.status,
+        shouldRetry,
+      } as VoiceApiError;
+    }
+
+    // PCM 형식 정보를 헤더에서 추출
+    const format: PCMAudioFormat = {
+      sampleRate: parseInt(response.headers.get('X-Audio-Sample-Rate') || '24000', 10),
+      channels: parseInt(response.headers.get('X-Audio-Channels') || '1', 10),
+      bitsPerSample: parseInt(response.headers.get('X-Audio-Bits-Per-Sample') || '16', 10),
+    };
+
+    // 스트리밍 응답 처리
+    if (!response.body) {
+      throw {
+        message: '스트리밍이 지원되지 않습니다.',
+        shouldRetry: false,
+      } as VoiceApiError;
+    }
+
+    const reader = response.body.getReader();
+
+    try {
+      while (true) {
+        if (signal?.aborted) {
+          await reader.cancel();
+          throw {
+            message: 'TTS 요청이 취소되었습니다.',
+            shouldRetry: false,
+            isAborted: true,
+          } as VoiceApiError;
+        }
+
+        const { done, value } = await reader.read();
+
+        if (done) {
+          break;
+        }
+
+        if (value && value.byteLength > 0) {
+          // ArrayBuffer로 변환하여 콜백 호출
+          const buffer = value.buffer.slice(
+            value.byteOffset,
+            value.byteOffset + value.byteLength
+          );
+          onChunk(buffer, format);
+        }
+      }
+    } catch (error) {
+      await reader.cancel().catch(() => {});
+      throw error;
+    }
   },
 
   /**
