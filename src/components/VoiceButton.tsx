@@ -2,6 +2,13 @@
  * VoiceButton Component
  *
  * 음성 입력 버튼 - 상태별 시각적 피드백 제공
+ *
+ * 입력모드 (PTT):
+ * - idle: 비활성화 상태 (마이크 아이콘) - "녹음하기"
+ * - recording: 녹음 중 - "녹음 중... (누르면 전송)"
+ * - transcribing: STT 변환 중
+ *
+ * 통화모드 (VAD):
  * - idle: 비활성화 상태 (마이크 아이콘)
  * - listening: VAD 활성화, 발화 대기 중
  * - recording: 발화 감지됨, 녹음 중
@@ -13,19 +20,22 @@
 import { useCallback, useMemo } from 'react';
 import classNames from 'classnames';
 import styles from '@/styles/modules/VoiceButton.module.scss';
+import type { VoiceInputModeType } from '@/lib/store/chatSlice';
 
 // =============================================================================
 // Types
 // =============================================================================
 
 interface VoiceButtonProps {
+  /** 음성 입력 모드 */
+  inputMode: VoiceInputModeType;
   /** 청취 중 (VAD 활성화) */
   isListening: boolean;
   /** 녹음 중 (발화 감지됨) */
   isRecording: boolean;
   /** STT 변환 중 */
   isTranscribing: boolean;
-  /** VAD 로딩 중 */
+  /** VAD 로딩 중 / 마이크 초기화 중 */
   isLoading: boolean;
   /** 에러 메시지 */
   error: string | null;
@@ -103,6 +113,7 @@ const ErrorIcon = () => (
 // =============================================================================
 
 export function VoiceButton({
+  inputMode,
   isListening,
   isRecording,
   isTranscribing,
@@ -112,6 +123,8 @@ export function VoiceButton({
   onClick,
   className,
 }: VoiceButtonProps) {
+  const isPTTMode = inputMode === 'input';
+
   // 상태에 따른 아이콘 선택
   const icon = useMemo(() => {
     if (isLoading || isTranscribing) return <LoadingIcon />;
@@ -120,15 +133,24 @@ export function VoiceButton({
     return <MicrophoneIcon />;
   }, [isLoading, isTranscribing, error, isRecording]);
 
-  // 상태에 따른 텍스트
+  // 상태에 따른 텍스트 (모드별로 다른 표현)
   const statusText = useMemo(() => {
     if (isLoading) return '준비 중...';
     if (isTranscribing) return '변환 중...';
-    if (isRecording) return '말씀하세요';
-    if (isListening) return '듣고 있어요';
-    if (error) return error;
-    return '음성 입력';
-  }, [isLoading, isTranscribing, isRecording, isListening, error]);
+
+    if (isPTTMode) {
+      // 입력모드 (PTT)
+      if (isRecording) return '전송하기';
+      if (error) return error;
+      return '녹음하기';
+    } else {
+      // 통화모드 (VAD)
+      if (isRecording) return '말씀하세요';
+      if (isListening) return '듣고 있어요';
+      if (error) return error;
+      return '음성 입력';
+    }
+  }, [isLoading, isTranscribing, isRecording, isListening, error, isPTTMode]);
 
   // 버튼 클래스
   const buttonClass = classNames(

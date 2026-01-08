@@ -1,10 +1,14 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import { type ChatMessage, type SessionInfo } from '@/types/api';
 
+// 음성 입력 모드 타입
+export type VoiceInputModeType = 'input' | 'call';
+
 // 음성 모드 상태 타입 (STT)
 interface VoiceModeState {
   enabled: boolean;           // 음성 모드 활성화 여부
-  isListening: boolean;       // VAD 청취 중
+  inputMode: VoiceInputModeType; // 입력 모드: 'input' (PTT) | 'call' (VAD)
+  isListening: boolean;       // VAD 청취 중 (call 모드) 또는 PTT 청취 중 (input 모드)
   isRecording: boolean;       // 녹음 중 (발화 감지됨)
   isTranscribing: boolean;    // STT 처리 중
   error: string | null;       // 음성 관련 에러
@@ -43,6 +47,7 @@ const initialState: ChatState = {
   historyLoading: false,
   voiceMode: {
     enabled: false,
+    inputMode: 'input', // 기본값: 입력 모드 (PTT)
     isListening: false,
     isRecording: false,
     isTranscribing: false,
@@ -105,6 +110,9 @@ const chatSlice = createSlice({
     setVoiceModeEnabled: (state, action: PayloadAction<boolean>) => {
       state.voiceMode.enabled = action.payload;
     },
+    setVoiceInputMode: (state, action: PayloadAction<VoiceInputModeType>) => {
+      state.voiceMode.inputMode = action.payload;
+    },
     setVoiceListening: (state, action: PayloadAction<boolean>) => {
       state.voiceMode.isListening = action.payload;
     },
@@ -120,6 +128,7 @@ const chatSlice = createSlice({
     resetVoiceMode: (state) => {
       state.voiceMode = {
         enabled: state.voiceMode.enabled, // enabled 상태는 유지
+        inputMode: state.voiceMode.inputMode, // inputMode 상태는 유지
         isListening: false,
         isRecording: false,
         isTranscribing: false,
@@ -164,6 +173,7 @@ export const {
   loadSessionHistory,
   // 음성 모드 액션 (STT)
   setVoiceModeEnabled,
+  setVoiceInputMode,
   setVoiceListening,
   setVoiceRecording,
   setVoiceTranscribing,

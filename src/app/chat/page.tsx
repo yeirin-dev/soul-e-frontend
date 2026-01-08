@@ -34,15 +34,18 @@ import { SoulECharacter } from '@/components/SoulECharacter';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { VoiceButton } from '@/components/VoiceButton';
 import { MuteButton } from '@/components/MuteButton';
+import { VoiceInputModeToggle } from '@/components/VoiceInputModeToggle';
 import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
+import { usePTTRecorder } from '@/hooks/usePTTRecorder';
 import { useTTSPlayer } from '@/hooks/useTTSPlayer';
 
 export default function ChatPage() {
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const { messages, sessionId, isLoading, error: chatError, sessions, sessionsLoading, historyLoading } = useAppSelector(
+  const { messages, sessionId, isLoading, error: chatError, sessions, sessionsLoading, historyLoading, voiceMode } = useAppSelector(
     (state) => state.chat
   );
+  const { inputMode: voiceInputMode } = voiceMode;
   const { selectedChild, childSessionToken, childSessionExpiresAt } = useAppSelector(
     (state) => state.auth
   );
@@ -285,19 +288,40 @@ export default function ChatPage() {
     dispatch(setError(error));
   }, [dispatch]);
 
-  // Voice Recorder 훅
+  // Voice Recorder 훅 (VAD - 통화모드)
   const {
-    startListening,
-    stopListening,
-    isListening: voiceIsListening,
-    isRecording: voiceIsRecording,
-    isTranscribing: voiceIsTranscribing,
-    error: voiceError,
+    startListening: vadStartListening,
+    stopListening: vadStopListening,
+    isListening: vadIsListening,
+    isRecording: vadIsRecording,
+    isTranscribing: vadIsTranscribing,
+    error: vadError,
     isVADLoading,
   } = useVoiceRecorder({
     onTranscription: handleVoiceTranscription,
     onError: handleVoiceError,
   });
+
+  // PTT Recorder 훅 (Push-to-Talk - 입력모드)
+  const {
+    startRecording: pttStartRecording,
+    stopRecording: pttStopRecording,
+    isRecording: pttIsRecording,
+    isTranscribing: pttIsTranscribing,
+    error: pttError,
+    isInitializing: pttIsInitializing,
+  } = usePTTRecorder({
+    onTranscription: handleVoiceTranscription,
+    onError: handleVoiceError,
+  });
+
+  // 현재 모드에 따른 상태 선택
+  const isPTTMode = voiceInputMode === 'input';
+  const voiceIsListening = isPTTMode ? pttIsRecording : vadIsListening;
+  const voiceIsRecording = isPTTMode ? pttIsRecording : vadIsRecording;
+  const voiceIsTranscribing = isPTTMode ? pttIsTranscribing : vadIsTranscribing;
+  const voiceError = isPTTMode ? pttError : vadError;
+  const voiceIsLoading = isPTTMode ? pttIsInitializing : isVADLoading;
 
   // TTS Player 훅
   const {
@@ -315,14 +339,24 @@ export default function ChatPage() {
     speakRef.current = speak;
   }, [speak]);
 
-  // 음성 버튼 클릭 핸들러
+  // 음성 버튼 클릭 핸들러 (모드별 분기)
   const handleVoiceButtonClick = useCallback(() => {
-    if (voiceIsListening) {
-      stopListening();
+    if (isPTTMode) {
+      // 입력모드 (PTT): 토글 방식
+      if (pttIsRecording) {
+        pttStopRecording();
+      } else {
+        pttStartRecording();
+      }
     } else {
-      startListening();
+      // 통화모드 (VAD): 토글 방식
+      if (vadIsListening) {
+        vadStopListening();
+      } else {
+        vadStartListening();
+      }
     }
-  }, [voiceIsListening, startListening, stopListening]);
+  }, [isPTTMode, pttIsRecording, pttStartRecording, pttStopRecording, vadIsListening, vadStartListening, vadStopListening]);
 
   // 폼 제출 핸들러
   const handleSend = (e?: React.FormEvent, messageToSend?: string) => {
@@ -371,6 +405,11 @@ export default function ChatPage() {
           ←
         </button>
         <h2>소울이와 대화하기</h2>
+
+        {/* 음성 입력 모드 토글 */}
+        <VoiceInputModeToggle
+          disabled={voiceIsListening || voiceIsRecording || voiceIsTranscribing}
+        />
 
         {/* TTS 음소거 버튼 */}
         <MuteButton
@@ -585,10 +624,11 @@ export default function ChatPage() {
       <form onSubmit={handleSend} className={styles.inputArea}>
         {/* 음성 입력 버튼 */}
         <VoiceButton
+          inputMode={voiceInputMode}
           isListening={voiceIsListening}
           isRecording={voiceIsRecording}
           isTranscribing={voiceIsTranscribing}
-          isLoading={isVADLoading}
+          isLoading={voiceIsLoading}
           error={voiceError}
           disabled={isLoading}
           onClick={handleVoiceButtonClick}
