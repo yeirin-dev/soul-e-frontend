@@ -5,6 +5,7 @@
  * - 음소거 상태 관리 (localStorage 연동)
  * - 자동 재생 및 에러 핸들링
  * - 비용 최적화: 음소거 시 TTS API 호출 스킵
+ * - 요청 취소 및 race condition 방지
  */
 
 'use client';
@@ -24,6 +25,9 @@ import {
 // =============================================================================
 
 const MUTE_STORAGE_KEY = 'soul_e_tts_muted';
+
+// 최소 버퍼 크기: 8KB (32KB에서 축소 - 더 빠른 재생 시작)
+const MIN_BYTES_TO_PLAY = 8 * 1024;
 
 /**
  * 텍스트에서 이모지 제거
@@ -145,6 +149,8 @@ export function useTTSPlayer({
   // Refs
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const currentRequestIdRef = useRef<number>(0);
   const onPlayCompleteRef = useRef(onPlayComplete);
   const onErrorRef = useRef(onError);
 
@@ -164,9 +170,13 @@ export function useTTSPlayer({
     }
   }, [dispatch]);
 
-  // Cleanup audio URL on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
+      // Abort any ongoing request
+      abortControllerRef.current?.abort();
+
+      // Clean up audio
       if (audioUrlRef.current) {
         URL.revokeObjectURL(audioUrlRef.current);
       }
@@ -175,6 +185,29 @@ export function useTTSPlayer({
         audioRef.current = null;
       }
     };
+  }, []);
+
+  // Helper: cleanup previous audio and request
+  const cleanupPrevious = useCallback(() => {
+    // Abort any ongoing TTS request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
+    // Stop and cleanup previous audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.onplay = null;
+      audioRef.current.onended = null;
+      audioRef.current.onerror = null;
+      audioRef.current = null;
+    }
+
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
   }, []);
 
   // Toggle mute and persist to localStorage
@@ -186,21 +219,20 @@ export function useTTSPlayer({
       localStorage.setItem(MUTE_STORAGE_KEY, String(newMuted));
     }
 
-    // 음소거 시 현재 재생 중지
-    if (newMuted && audioRef.current) {
-      audioRef.current.pause();
+    // 음소거 시 현재 재생 및 요청 중지
+    if (newMuted) {
+      cleanupPrevious();
       dispatch(setTTSPlaying(false));
+      dispatch(setTTSLoading(false));
     }
-  }, [isMuted, dispatch]);
+  }, [isMuted, dispatch, cleanupPrevious]);
 
   // Stop current playback
   const stop = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
+    cleanupPrevious();
     dispatch(setTTSPlaying(false));
-  }, [dispatch]);
+    dispatch(setTTSLoading(false));
+  }, [dispatch, cleanupPrevious]);
 
   // Speak text using TTS (streaming for faster playback)
   const speak = useCallback(async (text: string) => {
@@ -220,123 +252,110 @@ export function useTTSPlayer({
       return;
     }
 
-    // 이전 재생 정리
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-    if (audioUrlRef.current) {
-      URL.revokeObjectURL(audioUrlRef.current);
-      audioUrlRef.current = null;
-    }
+    // 이전 재생 및 요청 정리
+    cleanupPrevious();
+
+    // 새 요청 ID 생성 (race condition 방지)
+    const requestId = ++currentRequestIdRef.current;
+
+    // 새 AbortController 생성
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     dispatch(setTTSLoading(true));
     dispatch(setTTSError(null));
 
     let hasStartedPlaying = false;
-    let audio: HTMLAudioElement | null = null;
 
     try {
-      // 스트리밍 TTS API 호출
-      // 첫 청크가 충분히 도착하면 바로 재생 시작 (약 32KB 이상)
-      const MIN_BYTES_TO_PLAY = 32 * 1024; // 32KB
-
-      await voiceApi.synthesizeStream(cleanText, (accumulatedBlob, isComplete) => {
-        // 이미 재생 시작했으면 스킵 (완료 콜백 제외)
-        if (hasStartedPlaying && !isComplete) {
-          return;
-        }
-
-        // 충분한 데이터가 쌓였거나 완료되면 재생 시작
-        if (!hasStartedPlaying && (accumulatedBlob.size >= MIN_BYTES_TO_PLAY || isComplete)) {
-          hasStartedPlaying = true;
-
-          // 이전 URL 정리
-          if (audioUrlRef.current) {
-            URL.revokeObjectURL(audioUrlRef.current);
+      await voiceApi.synthesizeStream(
+        cleanText,
+        (accumulatedBlob, isComplete) => {
+          // Race condition 체크: 현재 요청이 아니면 무시
+          if (requestId !== currentRequestIdRef.current) {
+            return;
           }
 
-          // 새 Audio 요소 생성
-          const audioUrl = URL.createObjectURL(accumulatedBlob);
-          audioUrlRef.current = audioUrl;
-
-          audio = new Audio(audioUrl);
-          audioRef.current = audio;
-
-          audio.onplay = () => {
-            dispatch(setTTSPlaying(true));
-            dispatch(setTTSLoading(false));
-          };
-
-          audio.onended = () => {
-            dispatch(setTTSPlaying(false));
-            onPlayCompleteRef.current?.();
-          };
-
-          audio.onerror = () => {
-            dispatch(setTTSPlaying(false));
-            dispatch(setTTSLoading(false));
-            const errorMsg = '오디오 재생에 실패했습니다.';
-            dispatch(setTTSError(errorMsg));
-            onErrorRef.current?.(errorMsg);
-          };
-
-          // 재생 시작
-          audio.play().catch((err) => {
-            console.error('Audio play error:', err);
-            dispatch(setTTSLoading(false));
-          });
-        }
-
-        // 완료 시 최종 오디오로 교체 (끊김 없이 이어서 재생)
-        if (isComplete && audio && audioRef.current === audio) {
-          // 현재 재생 위치 저장
-          const currentTime = audio.currentTime;
-          const wasPlaying = !audio.paused;
-
-          // 새 URL로 교체
-          if (audioUrlRef.current) {
-            URL.revokeObjectURL(audioUrlRef.current);
+          // 이미 abort된 요청이면 무시
+          if (abortController.signal.aborted) {
+            return;
           }
-          const finalUrl = URL.createObjectURL(accumulatedBlob);
-          audioUrlRef.current = finalUrl;
 
-          // 새 오디오 요소 생성하고 이어서 재생
-          const finalAudio = new Audio(finalUrl);
-          finalAudio.currentTime = currentTime;
-          audioRef.current = finalAudio;
+          // 충분한 데이터가 쌓였거나 완료되면 재생 시작 (한 번만)
+          if (!hasStartedPlaying && (accumulatedBlob.size >= MIN_BYTES_TO_PLAY || isComplete)) {
+            hasStartedPlaying = true;
 
-          finalAudio.onplay = () => {
-            dispatch(setTTSPlaying(true));
-          };
+            // 새 Audio 요소 생성
+            const audioUrl = URL.createObjectURL(accumulatedBlob);
+            audioUrlRef.current = audioUrl;
 
-          finalAudio.onended = () => {
-            dispatch(setTTSPlaying(false));
-            onPlayCompleteRef.current?.();
-          };
+            const audio = new Audio(audioUrl);
+            audioRef.current = audio;
 
-          finalAudio.onerror = () => {
-            dispatch(setTTSPlaying(false));
-          };
+            audio.onplay = () => {
+              // Race condition 체크
+              if (requestId !== currentRequestIdRef.current) return;
+              dispatch(setTTSPlaying(true));
+              dispatch(setTTSLoading(false));
+            };
 
-          if (wasPlaying) {
-            finalAudio.play().catch(console.error);
+            audio.onended = () => {
+              // Race condition 체크
+              if (requestId !== currentRequestIdRef.current) return;
+              dispatch(setTTSPlaying(false));
+              onPlayCompleteRef.current?.();
+            };
+
+            audio.onerror = () => {
+              // Race condition 체크
+              if (requestId !== currentRequestIdRef.current) return;
+              dispatch(setTTSPlaying(false));
+              dispatch(setTTSLoading(false));
+              const errorMsg = '오디오 재생에 실패했습니다.';
+              dispatch(setTTSError(errorMsg));
+              onErrorRef.current?.(errorMsg);
+            };
+
+            // 재생 시작
+            audio.play().catch((err) => {
+              // Race condition 체크
+              if (requestId !== currentRequestIdRef.current) return;
+              console.error('Audio play error:', err);
+              dispatch(setTTSLoading(false));
+            });
           }
-        }
-      });
+
+          // 스트리밍 완료 시: 기존 오디오가 끝나면 콜백이 호출됨
+          // 더 이상 오디오를 재생성하지 않음 (겹침 문제 해결)
+          // 초기 버퍼로 시작한 오디오가 계속 재생됨
+        },
+        abortController.signal
+      );
 
       // 스트리밍이 끝났는데 아직 재생을 시작하지 못한 경우 (매우 짧은 텍스트)
-      if (!hasStartedPlaying) {
+      if (!hasStartedPlaying && requestId === currentRequestIdRef.current) {
         dispatch(setTTSLoading(false));
       }
 
     } catch (err) {
+      // Race condition 체크
+      if (requestId !== currentRequestIdRef.current) {
+        return;
+      }
+
       const apiError = err as VoiceApiError;
+
+      // Abort 에러는 무시 (의도적 취소)
+      if (apiError.isAborted) {
+        return;
+      }
+
       const errorMessage = apiError.message || 'TTS 변환에 실패했습니다.';
       dispatch(setTTSError(errorMessage));
       dispatch(setTTSLoading(false));
       onErrorRef.current?.(errorMessage);
     }
-  }, [isMuted, dispatch]);
+  }, [isMuted, dispatch, cleanupPrevious]);
 
   return {
     speak,

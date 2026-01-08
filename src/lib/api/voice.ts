@@ -34,6 +34,7 @@ export interface VoiceApiError {
   message: string;
   status?: number;
   shouldRetry?: boolean;
+  isAborted?: boolean;
 }
 
 // =============================================================================
@@ -188,11 +189,13 @@ export const voiceApi = {
    * 오디오가 생성되는대로 스트리밍으로 수신하여 더 빠른 재생 시작 가능
    * @param text 변환할 텍스트
    * @param onChunk 청크 수신 시 호출되는 콜백 (누적된 Blob 전달)
+   * @param signal AbortSignal for cancellation
    * @returns 최종 Audio Blob (MP3)
    */
   synthesizeStream: async (
     text: string,
-    onChunk?: (accumulatedBlob: Blob, isComplete: boolean) => void
+    onChunk?: (accumulatedBlob: Blob, isComplete: boolean) => void,
+    signal?: AbortSignal
   ): Promise<Blob> => {
     const childToken = TokenManager.getChildToken();
 
@@ -213,8 +216,17 @@ export const voiceApi = {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ text }),
+        signal, // AbortSignal for cancellation
       });
-    } catch (networkError) {
+    } catch (error) {
+      // Handle abort
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw {
+          message: 'TTS 요청이 취소되었습니다.',
+          shouldRetry: false,
+          isAborted: true,
+        } as VoiceApiError;
+      }
       throw {
         message: '네트워크 연결을 확인해주세요.',
         shouldRetry: true,
@@ -262,23 +274,39 @@ export const voiceApi = {
     const reader = response.body.getReader();
     const chunks: ArrayBuffer[] = [];
 
-    while (true) {
-      const { done, value } = await reader.read();
+    try {
+      while (true) {
+        // Check for abort before reading
+        if (signal?.aborted) {
+          await reader.cancel();
+          throw {
+            message: 'TTS 요청이 취소되었습니다.',
+            shouldRetry: false,
+            isAborted: true,
+          } as VoiceApiError;
+        }
 
-      if (done) {
-        break;
-      }
+        const { done, value } = await reader.read();
 
-      if (value) {
-        // Uint8Array를 ArrayBuffer로 변환
-        chunks.push(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
+        if (done) {
+          break;
+        }
 
-        // 콜백으로 현재까지 누적된 데이터 전달
-        if (onChunk) {
-          const accumulatedBlob = new Blob(chunks, { type: 'audio/mp3' });
-          onChunk(accumulatedBlob, false);
+        if (value) {
+          // Uint8Array를 ArrayBuffer로 변환하여 저장
+          chunks.push(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
+
+          // 콜백으로 현재까지 누적된 데이터 전달
+          if (onChunk) {
+            const accumulatedBlob = new Blob(chunks, { type: 'audio/mp3' });
+            onChunk(accumulatedBlob, false);
+          }
         }
       }
+    } catch (error) {
+      // Clean up reader on error
+      await reader.cancel().catch(() => {});
+      throw error;
     }
 
     const finalBlob = new Blob(chunks, { type: 'audio/mp3' });
