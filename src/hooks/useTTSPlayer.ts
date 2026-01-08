@@ -265,77 +265,63 @@ export function useTTSPlayer({
     dispatch(setTTSLoading(true));
     dispatch(setTTSError(null));
 
-    let hasStartedPlaying = false;
-
     try {
-      await voiceApi.synthesizeStream(
+      // 스트리밍으로 전체 오디오를 받은 후 재생
+      // (초기 버퍼로 재생하면 첫 부분만 재생되는 문제 발생)
+      const finalBlob = await voiceApi.synthesizeStream(
         cleanText,
-        (accumulatedBlob, isComplete) => {
-          // Race condition 체크: 현재 요청이 아니면 무시
-          if (requestId !== currentRequestIdRef.current) {
-            return;
-          }
-
-          // 이미 abort된 요청이면 무시
-          if (abortController.signal.aborted) {
-            return;
-          }
-
-          // 충분한 데이터가 쌓였거나 완료되면 재생 시작 (한 번만)
-          if (!hasStartedPlaying && (accumulatedBlob.size >= MIN_BYTES_TO_PLAY || isComplete)) {
-            hasStartedPlaying = true;
-
-            // 새 Audio 요소 생성
-            const audioUrl = URL.createObjectURL(accumulatedBlob);
-            audioUrlRef.current = audioUrl;
-
-            const audio = new Audio(audioUrl);
-            audioRef.current = audio;
-
-            audio.onplay = () => {
-              // Race condition 체크
-              if (requestId !== currentRequestIdRef.current) return;
-              dispatch(setTTSPlaying(true));
-              dispatch(setTTSLoading(false));
-            };
-
-            audio.onended = () => {
-              // Race condition 체크
-              if (requestId !== currentRequestIdRef.current) return;
-              dispatch(setTTSPlaying(false));
-              onPlayCompleteRef.current?.();
-            };
-
-            audio.onerror = () => {
-              // Race condition 체크
-              if (requestId !== currentRequestIdRef.current) return;
-              dispatch(setTTSPlaying(false));
-              dispatch(setTTSLoading(false));
-              const errorMsg = '오디오 재생에 실패했습니다.';
-              dispatch(setTTSError(errorMsg));
-              onErrorRef.current?.(errorMsg);
-            };
-
-            // 재생 시작
-            audio.play().catch((err) => {
-              // Race condition 체크
-              if (requestId !== currentRequestIdRef.current) return;
-              console.error('Audio play error:', err);
-              dispatch(setTTSLoading(false));
-            });
-          }
-
-          // 스트리밍 완료 시: 기존 오디오가 끝나면 콜백이 호출됨
-          // 더 이상 오디오를 재생성하지 않음 (겹침 문제 해결)
-          // 초기 버퍼로 시작한 오디오가 계속 재생됨
-        },
+        undefined, // 청크 콜백 사용 안함 - 전체 완료 후 재생
         abortController.signal
       );
 
-      // 스트리밍이 끝났는데 아직 재생을 시작하지 못한 경우 (매우 짧은 텍스트)
-      if (!hasStartedPlaying && requestId === currentRequestIdRef.current) {
-        dispatch(setTTSLoading(false));
+      // Race condition 체크
+      if (requestId !== currentRequestIdRef.current) {
+        return;
       }
+
+      // Abort 체크
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      // 새 Audio 요소 생성
+      const audioUrl = URL.createObjectURL(finalBlob);
+      audioUrlRef.current = audioUrl;
+
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+
+      audio.onplay = () => {
+        // Race condition 체크
+        if (requestId !== currentRequestIdRef.current) return;
+        dispatch(setTTSPlaying(true));
+        dispatch(setTTSLoading(false));
+      };
+
+      audio.onended = () => {
+        // Race condition 체크
+        if (requestId !== currentRequestIdRef.current) return;
+        dispatch(setTTSPlaying(false));
+        onPlayCompleteRef.current?.();
+      };
+
+      audio.onerror = () => {
+        // Race condition 체크
+        if (requestId !== currentRequestIdRef.current) return;
+        dispatch(setTTSPlaying(false));
+        dispatch(setTTSLoading(false));
+        const errorMsg = '오디오 재생에 실패했습니다.';
+        dispatch(setTTSError(errorMsg));
+        onErrorRef.current?.(errorMsg);
+      };
+
+      // 재생 시작
+      audio.play().catch((err) => {
+        // Race condition 체크
+        if (requestId !== currentRequestIdRef.current) return;
+        console.error('Audio play error:', err);
+        dispatch(setTTSLoading(false));
+      });
 
     } catch (err) {
       // Race condition 체크
