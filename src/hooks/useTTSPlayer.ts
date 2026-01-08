@@ -157,6 +157,8 @@ export function useTTSPlayer({
   const isStreamingCompleteRef = useRef<boolean>(false);
   const onPlayCompleteRef = useRef(onPlayComplete);
   const onErrorRef = useRef(onError);
+  // PCM 청크 경계가 샘플 경계와 맞지 않을 때 남은 바이트 버퍼
+  const pendingByteRef = useRef<number | null>(null);
 
   // Update refs
   useEffect(() => {
@@ -205,6 +207,7 @@ export function useTTSPlayer({
     playingSourcesRef.current = [];
     nextStartTimeRef.current = 0;
     isStreamingCompleteRef.current = false;
+    pendingByteRef.current = null;
 
     // AudioContext 닫기
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
@@ -270,8 +273,29 @@ export function useTTSPlayer({
       audioContext.resume();
     }
 
+    // 청크 바이트 배열로 변환
+    let bytes = new Uint8Array(chunk);
+
+    // 이전 청크에서 남은 바이트가 있으면 앞에 추가
+    if (pendingByteRef.current !== null) {
+      const newBytes = new Uint8Array(bytes.length + 1);
+      newBytes[0] = pendingByteRef.current;
+      newBytes.set(bytes, 1);
+      bytes = newBytes;
+      pendingByteRef.current = null;
+    }
+
+    // 홀수 바이트면 마지막 바이트를 다음 청크용으로 저장
+    if (bytes.length % 2 !== 0) {
+      pendingByteRef.current = bytes[bytes.length - 1];
+      bytes = bytes.slice(0, bytes.length - 1);
+    }
+
+    // 처리할 바이트가 없으면 스킵
+    if (bytes.length === 0) return;
+
     // Int16 PCM → Float32 변환
-    const int16Array = new Int16Array(chunk);
+    const int16Array = new Int16Array(bytes.buffer, bytes.byteOffset, bytes.length / 2);
     const float32Array = int16ToFloat32(int16Array);
 
     // AudioBuffer 생성
