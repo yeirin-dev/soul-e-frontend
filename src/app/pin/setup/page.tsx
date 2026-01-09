@@ -76,6 +76,15 @@ export default function PinSetupPage() {
       setTimeout(() => {
         if (verifyChildPin.fulfilled.match(verifyResult) && verifyResult.payload.response.verified) {
           router.push('/chat');
+        } else if (verifyChildPin.rejected.match(verifyResult)) {
+          // 동의 필요 에러인 경우 동의 페이지로 리디렉션
+          const errorMessage = verifyResult.payload as string;
+          if (errorMessage?.includes('약관에 동의하지 않았어요') || errorMessage?.includes('동의가 필요')) {
+            router.push('/consent');
+          } else {
+            // 기타 인증 실패 시 인증 페이지로
+            router.push('/pin/verify');
+          }
         } else {
           // 인증 실패 시 인증 페이지로 (예외 상황)
           router.push('/pin/verify');
