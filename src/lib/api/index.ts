@@ -40,6 +40,10 @@ import {
   type InstitutionLoginRequest,
   type InstitutionLoginResponse,
   type ChangeInstitutionPasswordRequest,
+  type ConsentStatusResponse,
+  type AcceptConsentRequest,
+  type AcceptConsentResponse,
+  type DocumentUrlResponse,
 } from '@/types/api';
 
 // =============================================================================
@@ -449,6 +453,46 @@ export const sessionApi = {
    */
   closeSession: async (sessionId: string): Promise<void> => {
     await soulClient.post(`/sessions/${sessionId}/close`);
+  },
+};
+
+// =============================================================================
+// Consent API (Soul Backend - Port 8000)
+// =============================================================================
+
+export const consentApi = {
+  /**
+   * 동의 상태 조회
+   * Soul-E Backend (8000) - yeirin_token 사용
+   */
+  getStatus: async (childId: string): Promise<ConsentStatusResponse> => {
+    const response = await soulClient.get<ConsentStatusResponse>(`/consent/status/${childId}`);
+    return response.data;
+  },
+
+  /**
+   * 동의 제출
+   * Soul-E Backend (8000) - yeirin_token 사용
+   */
+  accept: async (request: AcceptConsentRequest): Promise<AcceptConsentResponse> => {
+    const response = await soulClient.post<AcceptConsentResponse>('/consent/accept', request);
+    return response.data;
+  },
+
+  /**
+   * 동의서 문서 URL 조회
+   * Soul-E Backend (8000)
+   */
+  getDocumentUrl: async (): Promise<DocumentUrlResponse> => {
+    const response = await soulClient.get<DocumentUrlResponse>('/consent/document');
+    return response.data;
+  },
+
+  /**
+   * 동의서 PDF 경로 (정적)
+   */
+  getDocumentPath: (): string => {
+    return '/documents/privacy-policy-v1.0.0.pdf';
   },
 };
 

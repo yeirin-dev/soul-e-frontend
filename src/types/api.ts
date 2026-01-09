@@ -89,6 +89,47 @@ export interface ChildInfo {
   child_type: string;
   is_eligible: boolean; // 9-15세 대상 여부
   has_pin: boolean; // PIN 설정 여부
+  has_consent?: boolean; // 동의 여부 (optional for backward compatibility)
+}
+
+// =============================================================================
+// Consent Types (동의 관리)
+// =============================================================================
+
+export interface ConsentItems {
+  personal_info: boolean; // 개인정보 수집·이용 및 제3자 제공 동의 (필수)
+  sensitive_data: boolean; // 민감정보 처리 동의 (필수)
+  research_data: boolean; // 비식별화 데이터 연구 활용 동의 (선택)
+  child_self_consent: boolean; // 아동 본인 동의 (14세 이상 아동인 경우 필수)
+}
+
+export interface ConsentStatusResponse {
+  has_consent: boolean;
+  consent_items: ConsentItems | null;
+  consent_version: string | null;
+  consented_at: string | null;
+  is_valid: boolean;
+}
+
+export interface AcceptConsentRequest {
+  child_id: string;
+  consent_items: ConsentItems;
+  is_child_over_14: boolean;
+  document_url?: string;
+}
+
+export interface AcceptConsentResponse {
+  id: string;
+  child_id: string;
+  consent_items: ConsentItems;
+  consent_version: string;
+  has_valid_consent: boolean;
+  consented_at: string;
+}
+
+export interface DocumentUrlResponse {
+  url: string;
+  version: string;
 }
 
 // PIN Types

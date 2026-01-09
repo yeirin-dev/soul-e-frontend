@@ -470,6 +470,19 @@
   animation: pulse 2s ease-in-out infinite;
 }
 
+// 동의 필요 뱃지
+.consentBadge {
+  display: inline-block;
+  margin-top: 0.6rem;
+  padding: 0.3rem 0.85rem;
+  background: linear-gradient(135deg, #fef9e7, #fef3c7);
+  color: #d97706;
+  font-size: 0.8rem;
+  border-radius: 12px;
+  font-weight: 600;
+  animation: pulse 2s ease-in-out infinite;
+}
+
 @keyframes pulse {
   0%,
   100% {
@@ -622,7 +635,8 @@
   }
 
   .badge,
-  .newBadge {
+  .newBadge,
+  .consentBadge {
     font-size: 0.75rem;
     padding: 0.25rem 0.7rem;
   }

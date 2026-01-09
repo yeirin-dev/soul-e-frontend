@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks/redux';
 import { fetchChildren, clearError, logout, setSelectedChild, clearPinState } from '@/lib/store/authSlice';
 import { clearChat } from '@/lib/store/chatSlice';
+import { resetConsentState } from '@/lib/store/consentSlice';
 import { type ChildInfo } from '@/types/api';
 import styles from '@/styles/modules/ChildSelectPage.module.scss';
 
@@ -83,14 +84,20 @@ export default function ChildSelectPage() {
     // 기존 상태 클리어
     dispatch(clearChat());
     dispatch(clearPinState());
+    dispatch(resetConsentState());
 
     // 아동 선택 저장
     dispatch(setSelectedChild(child));
 
-    // PIN 설정 여부에 따라 라우팅
-    if (child.has_pin) {
+    // 동의 여부 → PIN 설정 여부에 따라 라우팅
+    if (!child.has_consent) {
+      // 동의 필요
+      router.push('/consent');
+    } else if (child.has_pin) {
+      // PIN 검증
       router.push('/pin/verify');
     } else {
+      // PIN 설정
       router.push('/pin/setup');
     }
 
@@ -250,7 +257,10 @@ export default function ChildSelectPage() {
                             <h3>{child.name}</h3>
                             <p>{child.age}세</p>
                           </div>
-                          {!child.has_pin && (
+                          {!child.has_consent && (
+                            <span className={styles.consentBadge}>동의 필요</span>
+                          )}
+                          {child.has_consent && !child.has_pin && (
                             <span className={styles.newBadge}>첫 방문</span>
                           )}
                         </button>
