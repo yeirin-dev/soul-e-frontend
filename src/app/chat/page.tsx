@@ -17,8 +17,9 @@ import {
   loadSessionHistory,
 } from '@/lib/store/chatSlice';
 import { clearChildSession, isChildSessionExpired } from '@/lib/store/authSlice';
-import { chatApi, sessionApi } from '@/lib/api';
+import { chatApi, sessionApi, settingsApi } from '@/lib/api';
 import { assessmentApi, type AllAssessmentStatuses } from '@/lib/api/assessment';
+import { useAssessmentSettings } from '@/lib/hooks/useAssessmentSettings';
 import { type ChatMessage } from '@/types/api';
 import {
   type ChildAssessmentStatus,
@@ -35,6 +36,7 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { VoiceButton } from '@/components/VoiceButton';
 import { MuteButton } from '@/components/MuteButton';
 import { VoiceInputModeToggle } from '@/components/VoiceInputModeToggle';
+import Tooltip from '@/components/Tooltip';
 import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
 import { usePTTRecorder } from '@/hooks/usePTTRecorder';
 import { useTTSPlayer } from '@/hooks/useTTSPlayer';
@@ -54,6 +56,10 @@ export default function ChatPage() {
   const [showSessionList, setShowSessionList] = useState(false);
   const [assessmentStatuses, setAssessmentStatuses] = useState<AllAssessmentStatuses | null>(null);
   const [assessmentStatusLoading, setAssessmentStatusLoading] = useState(false);
+
+  // 검사 활성화 설정 조회
+  const { data: assessmentEnabledSettings } = useAssessmentSettings();
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const sessionListRef = useRef<HTMLDivElement>(null);
@@ -434,6 +440,26 @@ export default function ChatPage() {
               const status = assessmentStatuses?.[typeKey];
               const info = ASSESSMENT_TYPE_INFO[typeKey];
               const assessmentType = ASSESSMENT_TYPES[typeKey];
+              // 검사 활성화 여부 확인 (assessmentType은 실제 API 키 값: CRTES_R, SDQ_A, KPRC_CO_SG_E)
+              const isAssessmentEnabled = assessmentEnabledSettings?.[assessmentType] ?? true;
+
+              // 검사가 비활성화된 경우 - 툴팁과 함께 비활성화 버튼 표시
+              if (!isAssessmentEnabled) {
+                return (
+                  <Tooltip key={typeKey} content="아직 검사기간이 아니에요 !" disabled={true}>
+                    <button
+                      className={styles.assessmentButton}
+                      type="button"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+                        <rect x="9" y="3" width="6" height="4" rx="1" />
+                      </svg>
+                      {info.shortName}
+                    </button>
+                  </Tooltip>
+                );
+              }
 
               if (status?.has_completed) {
                 return (

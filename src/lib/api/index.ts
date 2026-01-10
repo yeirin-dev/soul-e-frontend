@@ -559,6 +559,29 @@ export const guardianConsentApi = {
 export { assessmentApi } from './assessment';
 
 // =============================================================================
+// Settings API (Yeirin Backend - Port 3000, 인증 불필요)
+// =============================================================================
+
+export interface AssessmentEnabledSettings {
+  CRTES_R: boolean;
+  SDQ_A: boolean;
+  KPRC_CO_SG_E: boolean;
+}
+
+export const settingsApi = {
+  /**
+   * 검사 활성화 상태 조회
+   * Yeirin Backend (3000) - 인증 없음
+   */
+  getAssessmentEnabledSettings: async (): Promise<AssessmentEnabledSettings> => {
+    const response = await yeirinClient.get<AssessmentEnabledSettings>(
+      '/api/v1/settings/assessments/enabled'
+    );
+    return response.data;
+  },
+};
+
+// =============================================================================
 // Re-exports
 // =============================================================================
 
