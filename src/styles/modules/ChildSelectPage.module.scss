@@ -470,7 +470,7 @@
   animation: pulse 2s ease-in-out infinite;
 }
 
-// 동의 필요 뱃지
+// 동의 필요 뱃지 (아동 본인 동의)
 .consentBadge {
   display: inline-block;
   margin-top: 0.6rem;
@@ -481,6 +481,35 @@
   border-radius: 12px;
   font-weight: 600;
   animation: pulse 2s ease-in-out infinite;
+}
+
+// 보호자 동의 대기 뱃지
+.guardianConsentBadge {
+  display: inline-block;
+  margin-top: 0.6rem;
+  padding: 0.3rem 0.85rem;
+  background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+  color: #7c3aed;
+  font-size: 0.8rem;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+// 보호자 동의 대기 카드 상태
+.waitingConsent {
+  opacity: 0.75;
+  cursor: not-allowed;
+  border-color: #ddd6fe;
+
+  &:hover {
+    transform: none !important;
+    box-shadow: none !important;
+    border-color: #ddd6fe !important;
+  }
+
+  .avatar {
+    opacity: 0.8;
+  }
 }
 
 @keyframes pulse {
@@ -636,7 +665,8 @@
 
   .badge,
   .newBadge,
-  .consentBadge {
+  .consentBadge,
+  .guardianConsentBadge {
     font-size: 0.75rem;
     padding: 0.25rem 0.7rem;
   }

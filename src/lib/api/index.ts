@@ -44,6 +44,9 @@ import {
   type AcceptConsentRequest,
   type AcceptConsentResponse,
   type DocumentUrlResponse,
+  type VerifyGuardianTokenResponse,
+  type AcceptGuardianConsentRequest,
+  type AcceptGuardianConsentResponse,
 } from '@/types/api';
 
 // =============================================================================
@@ -493,6 +496,59 @@ export const consentApi = {
    */
   getDocumentPath: (): string => {
     return '/documents/privacy-policy-v1.0.0.pdf';
+  },
+};
+
+// =============================================================================
+// Guardian Consent API (Soul Backend - Port 8000, 토큰 인증)
+// MMS 링크를 통한 보호자 동의 페이지용
+// =============================================================================
+
+export const guardianConsentApi = {
+  /**
+   * 보호자 동의 토큰 검증
+   * Soul-E Backend (8000) - 인증 없음 (토큰 자체가 인증)
+   */
+  verify: async (token: string): Promise<VerifyGuardianTokenResponse> => {
+    const response = await fetch(`${SOUL_API_BASE}/consent/guardian/verify/${token}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: '토큰 검증에 실패했습니다.' }));
+      throw new Error(error.detail || '토큰 검증에 실패했습니다.');
+    }
+
+    return response.json();
+  },
+
+  /**
+   * 보호자 동의 제출
+   * Soul-E Backend (8000) - 토큰 기반 인증
+   */
+  accept: async (request: AcceptGuardianConsentRequest): Promise<AcceptGuardianConsentResponse> => {
+    const response = await fetch(`${SOUL_API_BASE}/consent/guardian/accept`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: '동의 저장에 실패했습니다.' }));
+
+      // 특정 HTTP 상태에 따른 에러 메시지
+      if (response.status === 410) {
+        throw new Error('링크가 만료되었습니다. 기관에 새 링크를 요청해주세요.');
+      }
+      if (response.status === 401) {
+        throw new Error('유효하지 않은 링크입니다.');
+      }
+
+      throw new Error(error.detail || '동의 저장에 실패했습니다.');
+    }
+
+    return response.json();
   },
 };
 

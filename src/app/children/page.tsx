@@ -74,8 +74,43 @@ export default function ChildSelectPage() {
     return { eligibleChildren: eligible, ineligibleChildren: ineligible };
   }, [filteredChildren]);
 
+  // 14세 기준 동의 상태 확인
+  const getConsentStatus = (child: ChildInfo) => {
+    const isOver14 = child.age >= 14;
+
+    // 새로운 필드가 있으면 사용
+    if (child.consent_status !== undefined) {
+      return child.consent_status;
+    }
+
+    // 새로운 필드가 있으면 계산
+    if (child.has_guardian_consent !== undefined) {
+      if (isOver14) {
+        // 14세 이상: 보호자 + 아동 본인 동의 필요
+        if (!child.has_guardian_consent && !child.has_child_consent) return 'NEED_BOTH';
+        if (!child.has_guardian_consent) return 'NEED_GUARDIAN';
+        if (!child.has_child_consent) return 'NEED_CHILD';
+        return 'COMPLETE';
+      } else {
+        // 14세 미만: 보호자 동의만 필요
+        return child.has_guardian_consent ? 'COMPLETE' : 'NEED_GUARDIAN';
+      }
+    }
+
+    // 기존 필드만 있는 경우 (하위 호환)
+    return child.has_consent ? 'COMPLETE' : (isOver14 ? 'NEED_BOTH' : 'NEED_GUARDIAN');
+  };
+
   const handleSelectChild = async (child: ChildInfo) => {
     if (!child.is_eligible) {
+      return;
+    }
+
+    const consentStatus = getConsentStatus(child);
+
+    // 보호자 동의 대기 중인 경우 - 선택 불가
+    if (consentStatus === 'NEED_GUARDIAN' || consentStatus === 'NEED_BOTH') {
+      // 보호자 동의 대기 안내 (선택하지 않음)
       return;
     }
 
@@ -89,9 +124,9 @@ export default function ChildSelectPage() {
     // 아동 선택 저장
     dispatch(setSelectedChild(child));
 
-    // 동의 여부 → PIN 설정 여부에 따라 라우팅
-    if (!child.has_consent) {
-      // 동의 필요
+    // 동의 상태에 따른 라우팅
+    if (consentStatus === 'NEED_CHILD') {
+      // 14세 이상: 아동 본인 동의 필요
       router.push('/consent');
     } else if (child.has_pin) {
       // PIN 검증
@@ -236,13 +271,17 @@ export default function ChildSelectPage() {
                   <div className={styles.grid}>
                     {eligibleChildren.map((child: ChildInfo) => {
                       const isSelecting = selectingChild && selectingChildId === child.id;
+                      const consentStatus = getConsentStatus(child);
+                      const needsGuardianConsent = consentStatus === 'NEED_GUARDIAN' || consentStatus === 'NEED_BOTH';
+                      const needsChildConsent = consentStatus === 'NEED_CHILD';
+                      const isComplete = consentStatus === 'COMPLETE';
 
                       return (
                         <button
                           key={child.id}
-                          className={`${styles.card} ${isSelecting ? styles.selecting : ''}`}
+                          className={`${styles.card} ${isSelecting ? styles.selecting : ''} ${needsGuardianConsent ? styles.waitingConsent : ''}`}
                           onClick={() => handleSelectChild(child)}
-                          disabled={selectingChild}
+                          disabled={selectingChild || needsGuardianConsent}
                           type="button"
                         >
                           {isSelecting && (
@@ -257,10 +296,13 @@ export default function ChildSelectPage() {
                             <h3>{child.name}</h3>
                             <p>{child.age}세</p>
                           </div>
-                          {!child.has_consent && (
+                          {needsGuardianConsent && (
+                            <span className={styles.guardianConsentBadge}>보호자 동의 대기</span>
+                          )}
+                          {needsChildConsent && (
                             <span className={styles.consentBadge}>동의 필요</span>
                           )}
-                          {child.has_consent && !child.has_pin && (
+                          {isComplete && !child.has_pin && (
                             <span className={styles.newBadge}>첫 방문</span>
                           )}
                         </button>

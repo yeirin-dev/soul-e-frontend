@@ -90,6 +90,10 @@ export interface ChildInfo {
   is_eligible: boolean; // 9-15세 대상 여부
   has_pin: boolean; // PIN 설정 여부
   has_consent?: boolean; // 동의 여부 (optional for backward compatibility)
+  // 14세 기준 분기 동의 상태 (신규)
+  has_guardian_consent?: boolean; // 보호자 동의 여부
+  has_child_consent?: boolean; // 아동 본인 동의 여부 (14세 이상)
+  consent_status?: 'COMPLETE' | 'NEED_GUARDIAN' | 'NEED_CHILD' | 'NEED_BOTH'; // 통합 동의 상태
 }
 
 // =============================================================================
@@ -249,6 +253,45 @@ export interface SessionDetailResponse {
   created_at: string;
   updated_at: string;
   messages: MessageResponse[];
+}
+
+// =============================================================================
+// Guardian Consent Types (보호자 MMS 동의)
+// =============================================================================
+
+/** 보호자 동의 항목 (childSelfConsent 제외) */
+export interface GuardianConsentItems {
+  personal_info: boolean; // 개인정보 수집·이용 및 제3자 제공 동의 (필수)
+  sensitive_data: boolean; // 민감정보 처리 동의 (필수)
+  research_data: boolean; // 비식별화 데이터 연구 활용 동의 (선택)
+}
+
+/** 보호자 동의 토큰 검증 응답 */
+export interface VerifyGuardianTokenResponse {
+  valid: boolean;
+  expired: boolean;
+  already_consented: boolean;
+  child_id: string | null;
+  child_name: string | null;
+  child_age: number | null;
+  institution_name: string | null;
+  error_message: string | null;
+}
+
+/** 보호자 동의 제출 요청 */
+export interface AcceptGuardianConsentRequest {
+  token: string;
+  consent_items: GuardianConsentItems;
+  guardian_relation: string; // '부모' | '시설담당자' | '기타'
+}
+
+/** 보호자 동의 제출 응답 */
+export interface AcceptGuardianConsentResponse {
+  success: boolean;
+  child_id: string;
+  child_name: string;
+  message: string;
+  consented_at: string;
 }
 
 // Error Types
