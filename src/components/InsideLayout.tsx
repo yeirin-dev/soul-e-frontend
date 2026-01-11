@@ -50,8 +50,8 @@ export function InsideLayout({
           <Image
             src="/yeirin-logo.png"
             alt="예이린"
-            width={20}
-            height={20}
+            width={28}
+            height={28}
             className={cx('bannerLogo')}
           />
           <span>AI 기반 아동 마음건강 통합 디지털 플랫폼</span>

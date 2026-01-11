@@ -3,16 +3,16 @@
 // 프로젝트 배너 스타일
 .projectBanner {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 4px;
+  right: 4px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   background-color: #ff6300;
   color: white;
-  padding: 6px 12px;
+  padding: 8px 16px;
   border-radius: 8px;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 500;
   box-shadow: 0 2px 8px rgba(255, 99, 0, 0.3);
   z-index: 10;
@@ -22,11 +22,11 @@
   }
 
   @include screen(mobile) {
-    top: 8px;
-    right: 8px;
-    padding: 4px 8px;
-    font-size: 10px;
-    gap: 6px;
+    top: 4px;
+    right: 4px;
+    padding: 6px 10px;
+    font-size: 11px;
+    gap: 8px;
   }
 }
 
