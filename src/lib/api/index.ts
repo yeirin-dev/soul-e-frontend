@@ -146,8 +146,10 @@ export const authApi = {
   verifyPin: async (request: VerifyPinRequest): Promise<VerifyPinResponse> => {
     const response = await soulClient.post<VerifyPinResponse>('/auth/pin/verify', request);
 
-    // PIN 검증 성공 시 토큰 저장
-    if (response.data.verified && response.data.session_token && response.data.expires_in_minutes) {
+    // PIN 검증 성공 시 토큰 저장 (session_token, expires_in_minutes가 null이 아닌 경우만)
+    if (response.data.verified &&
+        response.data.session_token !== null &&
+        response.data.expires_in_minutes !== null) {
       const expiresAt = new Date(Date.now() + response.data.expires_in_minutes * 60 * 1000).toISOString();
       TokenManager.setChildToken(response.data.session_token, expiresAt);
       TokenManager.setSelectedChildId(request.child_id);
@@ -348,10 +350,9 @@ export const chatApi = {
 
             try {
               const data = JSON.parse(dataStr);
-              if (data.content) {
-                fullContent += data.content;
-                if (onChunk) onChunk(fullContent);
-              }
+              // content가 없는 경우에도 안전하게 처리
+              fullContent += data.content ?? '';
+              if (data.content && onChunk) onChunk(fullContent);
               if (data.is_final && onComplete) {
                 onComplete({
                   session_id: data.session_id,
@@ -372,10 +373,9 @@ export const chatApi = {
         if (dataStr && dataStr !== '[DONE]') {
           try {
             const data = JSON.parse(dataStr);
-            if (data.content) {
-              fullContent += data.content;
-              if (onChunk) onChunk(fullContent);
-            }
+            // content가 없는 경우에도 안전하게 처리
+            fullContent += data.content ?? '';
+            if (data.content && onChunk) onChunk(fullContent);
             if (data.is_final && onComplete) {
               onComplete({
                 session_id: data.session_id,
@@ -516,8 +516,10 @@ export const guardianConsentApi = {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: '토큰 검증에 실패했습니다.' }));
-      throw new Error(error.detail || '토큰 검증에 실패했습니다.');
+      const error = await response.json().catch(() => ({}));
+      // 다양한 에러 응답 형식 호환 (FastAPI, NestJS, etc.)
+      const message = error.detail || error.message || error.error?.message || '토큰 검증에 실패했습니다.';
+      throw new Error(message);
     }
 
     return response.json();
@@ -535,7 +537,7 @@ export const guardianConsentApi = {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: '동의 저장에 실패했습니다.' }));
+      const error = await response.json().catch(() => ({}));
 
       // 특정 HTTP 상태에 따른 에러 메시지
       if (response.status === 410) {
@@ -545,7 +547,9 @@ export const guardianConsentApi = {
         throw new Error('유효하지 않은 링크입니다.');
       }
 
-      throw new Error(error.detail || '동의 저장에 실패했습니다.');
+      // 다양한 에러 응답 형식 호환 (FastAPI, NestJS, etc.)
+      const message = error.detail || error.message || error.error?.message || '동의 저장에 실패했습니다.';
+      throw new Error(message);
     }
 
     return response.json();
