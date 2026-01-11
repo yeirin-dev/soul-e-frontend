@@ -1,6 +1,21 @@
 import { createSlice, type PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
-import { type TeacherInfo, type ChildInfo, type LoginRequest, type VerifyPinResponse } from '@/types/api';
-import { authApi } from '@/lib/api';
+import {
+  type TeacherInfo,
+  type ChildInfo,
+  type LoginRequest,
+  type VerifyPinResponse,
+  type InstitutionType,
+  type InstitutionLoginRequest,
+} from '@/types/api';
+import { authApi, TokenManager } from '@/lib/api';
+
+interface InstitutionInfo {
+  id: string;
+  name: string;
+  type: InstitutionType;
+  district: string | null;
+  isPasswordChanged: boolean;
+}
 
 interface AuthState {
   teacher: TeacherInfo | null;
@@ -17,6 +32,9 @@ interface AuthState {
   pinLoading: boolean;
   pinError: string | null;
   pinFailedAttempts: number;
+  // 시설 기반 인증 상태
+  institution: InstitutionInfo | null;
+  isPasswordChanged: boolean;
 }
 
 const getStoredToken = (key: string): string | null => {
@@ -34,6 +52,19 @@ const getStoredNumber = (key: string): number | null => {
   return null;
 };
 
+const getStoredInstitution = (): InstitutionInfo | null => {
+  if (typeof window === 'undefined') return null;
+  const info = TokenManager.getInstitutionInfo();
+  if (!info.id || !info.type) return null;
+  return {
+    id: info.id,
+    name: info.name || '',
+    type: info.type as InstitutionType,
+    district: info.district,
+    isPasswordChanged: info.isPasswordChanged,
+  };
+};
+
 const initialState: AuthState = {
   teacher: null,
   children: [],
@@ -49,8 +80,17 @@ const initialState: AuthState = {
   pinLoading: false,
   pinError: null,
   pinFailedAttempts: 0,
+  // 시설 기반 인증 초기 상태
+  institution: getStoredInstitution(),
+  isPasswordChanged: typeof window !== 'undefined'
+    ? localStorage.getItem('isPasswordChanged') === 'true'
+    : true,
 };
 
+/**
+ * @deprecated 이메일/비밀번호 로그인은 더 이상 사용되지 않습니다.
+ * loginInstitution을 사용하세요.
+ */
 export const loginTeacher = createAsyncThunk(
   'auth/loginTeacher',
   async (credentials: LoginRequest, { rejectWithValue }) => {
@@ -81,6 +121,58 @@ export const loginTeacher = createAsyncThunk(
       }
     } catch (error: any) {
       // axios interceptor가 가공한 에러 또는 원본 에러
+      const message = error.message || error.response?.data?.message || error.response?.data?.detail || '로그인에 실패했습니다.';
+      return rejectWithValue(message);
+    }
+  }
+);
+
+/**
+ * 시설 기반 로그인 (신규)
+ * 구/군 선택 → 시설 선택 → 비밀번호 입력 방식
+ */
+export const loginInstitution = createAsyncThunk(
+  'auth/loginInstitution',
+  async (credentials: InstitutionLoginRequest, { rejectWithValue }) => {
+    try {
+      // 1. 시설 기반 로그인
+      const loginResponse = await authApi.institutionLogin(credentials);
+      const token = loginResponse.accessToken;
+
+      if (!token) {
+        return rejectWithValue('로그인 응답에서 토큰을 받지 못했습니다.');
+      }
+
+      // 2. Soul-E 백엔드에서 교사 정보 조회
+      try {
+        const teacher = await authApi.getMe();
+        return {
+          teacher,
+          token,
+          institution: {
+            id: loginResponse.institution.id,
+            name: loginResponse.institution.name,
+            type: loginResponse.institution.facilityType,
+            district: loginResponse.institution.district,
+            isPasswordChanged: loginResponse.institution.isPasswordChanged,
+          },
+        };
+      } catch (meError: any) {
+        // getMe 실패해도 로그인은 성공으로 처리
+        console.warn('Failed to get teacher info:', meError);
+        return {
+          teacher: null,
+          token,
+          institution: {
+            id: loginResponse.institution.id,
+            name: loginResponse.institution.name,
+            type: loginResponse.institution.facilityType,
+            district: loginResponse.institution.district,
+            isPasswordChanged: loginResponse.institution.isPasswordChanged,
+          },
+        };
+      }
+    } catch (error: any) {
       const message = error.message || error.response?.data?.message || error.response?.data?.detail || '로그인에 실패했습니다.';
       return rejectWithValue(message);
     }
@@ -208,9 +300,14 @@ const authSlice = createSlice({
       state.error = null;
       state.pinError = null;
       state.pinFailedAttempts = 0;
-      localStorage.removeItem('yeirin_token');
-      localStorage.removeItem('child_session_token');
-      localStorage.removeItem('child_session_expires_at');
+      state.institution = null;
+      state.isPasswordChanged = true;
+      // TokenManager.clearAll()이 모든 localStorage 항목을 정리함
+      TokenManager.clearAll();
+    },
+    setPasswordChanged: (state, action: PayloadAction<boolean>) => {
+      state.isPasswordChanged = action.payload;
+      TokenManager.setPasswordChanged(action.payload);
     },
   },
   extraReducers: (builder) => {
@@ -227,6 +324,23 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(loginTeacher.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+      // Login Institution (시설 기반 로그인)
+      .addCase(loginInstitution.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(loginInstitution.fulfilled, (state, action) => {
+        state.loading = false;
+        state.teacher = action.payload.teacher;
+        state.yeirinToken = action.payload.token;
+        state.institution = action.payload.institution;
+        state.isPasswordChanged = action.payload.institution.isPasswordChanged;
+        state.error = null;
+      })
+      .addCase(loginInstitution.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       })
@@ -323,5 +437,14 @@ const authSlice = createSlice({
   },
 });
 
-export const { setYeirinToken, clearError, clearPinError, clearPinState, setSelectedChild, clearChildSession, logout } = authSlice.actions;
+export const {
+  setYeirinToken,
+  clearError,
+  clearPinError,
+  clearPinState,
+  setSelectedChild,
+  clearChildSession,
+  logout,
+  setPasswordChanged,
+} = authSlice.actions;
 export default authSlice.reducer;

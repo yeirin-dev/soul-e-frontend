@@ -1,0 +1,64 @@
+.tooltipWrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.tooltip {
+  visibility: hidden;
+  position: absolute;
+  z-index: 100;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 8px;
+
+  padding: 8px 12px;
+  border-radius: 8px;
+  background-color: rgba(0, 0, 0, 0.85);
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-align: center;
+
+  opacity: 0;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+
+  // 위쪽 화살표
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px;
+    border-style: solid;
+    border-color: transparent transparent rgba(0, 0, 0, 0.85) transparent;
+  }
+}
+
+.tooltipWrapper:hover .tooltip {
+  visibility: visible;
+  opacity: 1;
+}
+
+// 비활성화 상태의 자식 요소 스타일링
+.disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+
+  // 버튼 비활성화 스타일
+  button {
+    background: linear-gradient(135deg, #9ca3af, #6b7280) !important;
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+}
+
+.tooltipWrapper.hasTooltip {
+  cursor: help;
+
+  & > *:first-child {
+    pointer-events: auto;
+  }
+}

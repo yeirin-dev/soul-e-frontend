@@ -13,7 +13,13 @@ import type {
   SaveAnswersRequest,
   ChildAssessmentStatus,
   SessionAnswers,
+  AssessmentTypeKey,
+  AssessmentTypeValue,
 } from '@/types/assessment';
+import { ASSESSMENT_TYPES } from '@/types/assessment';
+
+// All assessment statuses for a child (keyed by assessment type)
+export type AllAssessmentStatuses = Record<AssessmentTypeKey, ChildAssessmentStatus>;
 import { soulClient } from './clients';
 
 export const assessmentApi = {
@@ -111,10 +117,35 @@ export const assessmentApi = {
   /**
    * 아동별 검사 상태 요약 조회
    * 검사 버튼 상태를 결정하는 데 사용
+   * @param childId 아동 ID
+   * @param assessmentType 검사 유형 필터 (선택)
    */
-  getChildAssessmentStatus: async (childId: string): Promise<ChildAssessmentStatus> => {
-    const response = await soulClient.get<ChildAssessmentStatus>(`/assessment/children/${childId}/status`);
+  getChildAssessmentStatus: async (
+    childId: string,
+    assessmentType?: AssessmentTypeValue
+  ): Promise<ChildAssessmentStatus> => {
+    const response = await soulClient.get<ChildAssessmentStatus>(`/assessment/children/${childId}/status`, {
+      params: assessmentType ? { assessment_type: assessmentType } : undefined,
+    });
     return response.data;
+  },
+
+  /**
+   * 아동의 모든 검사 유형별 상태 일괄 조회
+   * 프론트엔드에서 모든 검사 버튼 상태를 한 번에 확인할 때 사용
+   */
+  getAllAssessmentStatuses: async (childId: string): Promise<AllAssessmentStatuses> => {
+    const [crtesR, sdqA, kprc] = await Promise.all([
+      assessmentApi.getChildAssessmentStatus(childId, ASSESSMENT_TYPES.CRTES_R),
+      assessmentApi.getChildAssessmentStatus(childId, ASSESSMENT_TYPES.SDQ_A),
+      assessmentApi.getChildAssessmentStatus(childId, ASSESSMENT_TYPES.KPRC),
+    ]);
+
+    return {
+      CRTES_R: crtesR,
+      SDQ_A: sdqA,
+      KPRC: kprc,
+    };
   },
 
   /**

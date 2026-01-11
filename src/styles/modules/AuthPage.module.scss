@@ -90,3 +90,38 @@
     gap: 1rem;
   }
 }
+
+// 매우 작은 화면 높이 대응 (700px 이하)
+@media only screen and (max-height: 700px) {
+  .authSection {
+    gap: 0.75rem;
+  }
+
+  .characterContainer {
+    padding: 0;
+  }
+
+  .soulE {
+    transform: scale(0.5);
+
+    &:hover {
+      transform: scale(0.55);
+    }
+  }
+
+  .formContainer {
+    gap: 0.75rem;
+  }
+}
+
+// 극단적으로 작은 화면 (550px 이하) - 캐릭터 더 축소
+@media only screen and (max-height: 550px) {
+  .characterContainer {
+    display: none; // 캐릭터 숨김
+  }
+
+  .authSection {
+    gap: 0.5rem;
+    justify-content: center;
+  }
+}

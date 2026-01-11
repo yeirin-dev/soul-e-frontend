@@ -50,6 +50,13 @@
   }
 }
 
+// 검사 버튼 컨테이너 (여러 검사 버튼을 담음)
+.assessmentButtons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 // 검사하기 버튼
 .assessmentButton {
   display: flex;
@@ -109,6 +116,29 @@
     &:hover {
       box-shadow: 0 4px 12px rgba(255, 166, 0, 0.4);
     }
+  }
+
+  // 버튼이 여러 개일 때 (컨테이너 안에서) 더 작게 표시
+  .assessmentButtons &:not(:only-child) {
+    padding: 0.5rem 0.9rem;
+    font-size: 0.85rem;
+    min-width: auto;
+    gap: 0.35rem;
+  }
+
+  // 버튼 텍스트 (아이콘 옆 텍스트)
+  .buttonText {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.2;
+  }
+
+  // 서브 텍스트 (완료/이어서 표시)
+  .buttonSubText {
+    font-size: 0.7rem;
+    font-weight: 400;
+    opacity: 0.9;
   }
 }
 
@@ -535,10 +565,17 @@
       font-size: 1.5rem;
     }
 
-    .assessmentButton {
+    .assessmentButtons {
       order: 2;
-      padding: 0.5rem 1rem;
-      font-size: 0.9rem;
+      width: 100%;
+      justify-content: center;
+      gap: 0.4rem;
+    }
+
+    .assessmentButton {
+      padding: 0.45rem 0.8rem;
+      font-size: 0.8rem;
+      min-width: auto;
     }
 
     .sessionSelector {

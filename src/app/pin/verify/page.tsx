@@ -59,6 +59,12 @@ export default function PinVerifyPage() {
       setTimeout(() => {
         router.push('/chat');
       }, 1500);
+    } else if (verifyChildPin.rejected.match(result)) {
+      // 동의 필요 에러인 경우 동의 페이지로 리디렉션
+      const errorMessage = result.payload as string;
+      if (errorMessage?.includes('약관에 동의하지 않았어요') || errorMessage?.includes('동의가 필요')) {
+        router.push('/consent');
+      }
     }
   };
 
@@ -131,7 +137,7 @@ export default function PinVerifyPage() {
                 </span>
               </h2>
               <p className={styles.instruction}>
-                <span className={styles.highlight}>비밀번호</span>를 눌러주세요!
+                <span className={styles.highlight}>우리만의 비밀번호</span>를 누르고 이야기해보자!
               </p>
             </>
           )}

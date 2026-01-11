@@ -1,0 +1,104 @@
+@use '../styles/index' as *;
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modalContent {
+  background-color: $gray100;
+  border-radius: 2rem;
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  animation: slideUp 0.3s ease-out;
+
+  @include screen(mobile) {
+    border-radius: 1.5rem;
+    max-width: 100%;
+  }
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid $gray300;
+
+  @include screen(mobile) {
+    padding: 1.25rem 1.5rem;
+  }
+}
+
+.modalTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: $gray700;
+  margin: 0;
+
+  @include screen(mobile) {
+    font-size: 1.25rem;
+  }
+}
+
+.closeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background-color: transparent;
+  color: $gray500;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background-color: $gray200;
+    color: $gray700;
+  }
+
+  @include screen(mobile) {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+.modalBody {
+  padding: 2rem;
+
+  @include screen(mobile) {
+    padding: 1.5rem;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

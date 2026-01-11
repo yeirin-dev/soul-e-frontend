@@ -35,6 +35,18 @@ import {
   type VerifyPinResponse,
   type ChangePinRequest,
   type ChangePinResponse,
+  type InstitutionType,
+  type DistrictFacility,
+  type InstitutionLoginRequest,
+  type InstitutionLoginResponse,
+  type ChangeInstitutionPasswordRequest,
+  type ConsentStatusResponse,
+  type AcceptConsentRequest,
+  type AcceptConsentResponse,
+  type DocumentUrlResponse,
+  type VerifyGuardianTokenResponse,
+  type AcceptGuardianConsentRequest,
+  type AcceptGuardianConsentResponse,
 } from '@/types/api';
 
 // =============================================================================
@@ -134,8 +146,10 @@ export const authApi = {
   verifyPin: async (request: VerifyPinRequest): Promise<VerifyPinResponse> => {
     const response = await soulClient.post<VerifyPinResponse>('/auth/pin/verify', request);
 
-    // PIN 검증 성공 시 토큰 저장
-    if (response.data.verified && response.data.session_token && response.data.expires_in_minutes) {
+    // PIN 검증 성공 시 토큰 저장 (session_token, expires_in_minutes가 null이 아닌 경우만)
+    if (response.data.verified &&
+        response.data.session_token !== null &&
+        response.data.expires_in_minutes !== null) {
       const expiresAt = new Date(Date.now() + response.data.expires_in_minutes * 60 * 1000).toISOString();
       TokenManager.setChildToken(response.data.session_token, expiresAt);
       TokenManager.setSelectedChildId(request.child_id);
@@ -151,6 +165,82 @@ export const authApi = {
   changePin: async (request: ChangePinRequest): Promise<ChangePinResponse> => {
     const response = await soulClient.post<ChangePinResponse>('/auth/pin/change', request);
     return response.data;
+  },
+
+  // ==========================================================================
+  // Institution-based Auth (시설 기반 인증 - 신규)
+  // ==========================================================================
+
+  /**
+   * 구/군 목록 조회
+   * Yeirin Backend (3000)
+   */
+  getDistricts: async (): Promise<string[]> => {
+    const response = await yeirinClient.get<string[]>('/api/v1/auth/districts');
+    return response.data;
+  },
+
+  /**
+   * 구/군별 시설 목록 조회
+   * Yeirin Backend (3000)
+   */
+  getFacilities: async (district: string): Promise<DistrictFacility[]> => {
+    const response = await yeirinClient.get<DistrictFacility[]>(
+      `/api/v1/auth/facilities?district=${encodeURIComponent(district)}`
+    );
+    return response.data;
+  },
+
+  /**
+   * 시설 기반 로그인
+   * Yeirin Backend (3000) - 성공 시 yeirin_token 발급
+   */
+  institutionLogin: async (credentials: InstitutionLoginRequest): Promise<InstitutionLoginResponse> => {
+    const response = await yeirinClient.post<InstitutionLoginResponse>(
+      '/api/v1/auth/institution/login',
+      credentials
+    );
+
+    // 토큰 저장
+    if (response.data.accessToken) {
+      TokenManager.setYeirinToken(response.data.accessToken);
+    }
+
+    // 시설 정보 저장
+    TokenManager.setInstitutionInfo({
+      id: response.data.institution.id,
+      type: response.data.institution.facilityType,
+      name: response.data.institution.name,
+      district: response.data.institution.district,
+      isPasswordChanged: response.data.institution.isPasswordChanged,
+    });
+
+    return response.data;
+  },
+
+  /**
+   * 시설 비밀번호 변경
+   * Yeirin Backend (3000)
+   */
+  changeInstitutionPassword: async (
+    currentPassword: string,
+    newPassword: string
+  ): Promise<void> => {
+    const institutionInfo = TokenManager.getInstitutionInfo();
+
+    if (!institutionInfo.id || !institutionInfo.type) {
+      throw new Error('시설 정보를 찾을 수 없습니다.');
+    }
+
+    await yeirinClient.post('/api/v1/auth/institution/change-password', {
+      facilityId: institutionInfo.id,
+      facilityType: institutionInfo.type as InstitutionType,
+      currentPassword,
+      newPassword,
+    } as ChangeInstitutionPasswordRequest);
+
+    // 비밀번호 변경 성공 시 상태 업데이트
+    TokenManager.setPasswordChanged(true);
   },
 };
 
@@ -260,10 +350,9 @@ export const chatApi = {
 
             try {
               const data = JSON.parse(dataStr);
-              if (data.content) {
-                fullContent += data.content;
-                if (onChunk) onChunk(fullContent);
-              }
+              // content가 없는 경우에도 안전하게 처리
+              fullContent += data.content ?? '';
+              if (data.content && onChunk) onChunk(fullContent);
               if (data.is_final && onComplete) {
                 onComplete({
                   session_id: data.session_id,
@@ -284,10 +373,9 @@ export const chatApi = {
         if (dataStr && dataStr !== '[DONE]') {
           try {
             const data = JSON.parse(dataStr);
-            if (data.content) {
-              fullContent += data.content;
-              if (onChunk) onChunk(fullContent);
-            }
+            // content가 없는 경우에도 안전하게 처리
+            fullContent += data.content ?? '';
+            if (data.content && onChunk) onChunk(fullContent);
             if (data.is_final && onComplete) {
               onComplete({
                 session_id: data.session_id,
@@ -372,10 +460,130 @@ export const sessionApi = {
 };
 
 // =============================================================================
+// Consent API (Soul Backend - Port 8000)
+// =============================================================================
+
+export const consentApi = {
+  /**
+   * 동의 상태 조회
+   * Soul-E Backend (8000) - yeirin_token 사용
+   */
+  getStatus: async (childId: string): Promise<ConsentStatusResponse> => {
+    const response = await soulClient.get<ConsentStatusResponse>(`/consent/status/${childId}`);
+    return response.data;
+  },
+
+  /**
+   * 동의 제출
+   * Soul-E Backend (8000) - yeirin_token 사용
+   */
+  accept: async (request: AcceptConsentRequest): Promise<AcceptConsentResponse> => {
+    const response = await soulClient.post<AcceptConsentResponse>('/consent/accept', request);
+    return response.data;
+  },
+
+  /**
+   * 동의서 문서 URL 조회
+   * Soul-E Backend (8000)
+   */
+  getDocumentUrl: async (): Promise<DocumentUrlResponse> => {
+    const response = await soulClient.get<DocumentUrlResponse>('/consent/document');
+    return response.data;
+  },
+
+  /**
+   * 동의서 PDF 경로 (정적)
+   */
+  getDocumentPath: (): string => {
+    return '/documents/privacy-policy-v1.0.0.pdf';
+  },
+};
+
+// =============================================================================
+// Guardian Consent API (Soul Backend - Port 8000, 토큰 인증)
+// MMS 링크를 통한 보호자 동의 페이지용
+// =============================================================================
+
+export const guardianConsentApi = {
+  /**
+   * 보호자 동의 토큰 검증
+   * Soul-E Backend (8000) - 인증 없음 (토큰 자체가 인증)
+   */
+  verify: async (token: string): Promise<VerifyGuardianTokenResponse> => {
+    const response = await fetch(`${SOUL_API_BASE}/consent/guardian/verify/${token}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      // 다양한 에러 응답 형식 호환 (FastAPI, NestJS, etc.)
+      const message = error.detail || error.message || error.error?.message || '토큰 검증에 실패했습니다.';
+      throw new Error(message);
+    }
+
+    return response.json();
+  },
+
+  /**
+   * 보호자 동의 제출
+   * Soul-E Backend (8000) - 토큰 기반 인증
+   */
+  accept: async (request: AcceptGuardianConsentRequest): Promise<AcceptGuardianConsentResponse> => {
+    const response = await fetch(`${SOUL_API_BASE}/consent/guardian/accept`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+
+      // 특정 HTTP 상태에 따른 에러 메시지
+      if (response.status === 410) {
+        throw new Error('링크가 만료되었습니다. 기관에 새 링크를 요청해주세요.');
+      }
+      if (response.status === 401) {
+        throw new Error('유효하지 않은 링크입니다.');
+      }
+
+      // 다양한 에러 응답 형식 호환 (FastAPI, NestJS, etc.)
+      const message = error.detail || error.message || error.error?.message || '동의 저장에 실패했습니다.';
+      throw new Error(message);
+    }
+
+    return response.json();
+  },
+};
+
+// =============================================================================
 // Assessment API (Soul Backend - Port 8000, 인증 불필요)
 // =============================================================================
 
 export { assessmentApi } from './assessment';
+
+// =============================================================================
+// Settings API (Yeirin Backend - Port 3000, 인증 불필요)
+// =============================================================================
+
+export interface AssessmentEnabledSettings {
+  CRTES_R: boolean;
+  SDQ_A: boolean;
+  KPRC_CO_SG_E: boolean;
+}
+
+export const settingsApi = {
+  /**
+   * 검사 활성화 상태 조회
+   * Yeirin Backend (3000) - 인증 없음
+   */
+  getAssessmentEnabledSettings: async (): Promise<AssessmentEnabledSettings> => {
+    const response = await yeirinClient.get<AssessmentEnabledSettings>(
+      '/api/v1/settings/assessments/enabled'
+    );
+    return response.data;
+  },
+};
 
 // =============================================================================
 // Re-exports

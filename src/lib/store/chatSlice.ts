@@ -1,6 +1,27 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import { type ChatMessage, type SessionInfo } from '@/types/api';
 
+// 음성 입력 모드 타입
+export type VoiceInputModeType = 'input' | 'call';
+
+// 음성 모드 상태 타입 (STT)
+interface VoiceModeState {
+  enabled: boolean;           // 음성 모드 활성화 여부
+  inputMode: VoiceInputModeType; // 입력 모드: 'input' (PTT) | 'call' (VAD)
+  isListening: boolean;       // VAD 청취 중 (call 모드) 또는 PTT 청취 중 (input 모드)
+  isRecording: boolean;       // 녹음 중 (발화 감지됨)
+  isTranscribing: boolean;    // STT 처리 중
+  error: string | null;       // 음성 관련 에러
+}
+
+// TTS 모드 상태 타입
+interface TTSModeState {
+  isMuted: boolean;           // 음소거 상태
+  isPlaying: boolean;         // 재생 중
+  isLoading: boolean;         // TTS 변환 중
+  error: string | null;       // TTS 관련 에러
+}
+
 interface ChatState {
   messages: ChatMessage[];
   sessionId: string | null;
@@ -10,6 +31,10 @@ interface ChatState {
   sessions: SessionInfo[];
   sessionsLoading: boolean;
   historyLoading: boolean;
+  // 음성 모드 상태 (STT)
+  voiceMode: VoiceModeState;
+  // TTS 모드 상태
+  ttsMode: TTSModeState;
 }
 
 const initialState: ChatState = {
@@ -20,6 +45,20 @@ const initialState: ChatState = {
   sessions: [],
   sessionsLoading: false,
   historyLoading: false,
+  voiceMode: {
+    enabled: false,
+    inputMode: 'input', // 기본값: 입력 모드 (PTT)
+    isListening: false,
+    isRecording: false,
+    isTranscribing: false,
+    error: null,
+  },
+  ttsMode: {
+    isMuted: false,
+    isPlaying: false,
+    isLoading: false,
+    error: null,
+  },
 };
 
 const chatSlice = createSlice({
@@ -67,6 +106,56 @@ const chatSlice = createSlice({
       state.messages = action.payload.messages;
       state.error = null;
     },
+    // 음성 모드 액션
+    setVoiceModeEnabled: (state, action: PayloadAction<boolean>) => {
+      state.voiceMode.enabled = action.payload;
+    },
+    setVoiceInputMode: (state, action: PayloadAction<VoiceInputModeType>) => {
+      state.voiceMode.inputMode = action.payload;
+    },
+    setVoiceListening: (state, action: PayloadAction<boolean>) => {
+      state.voiceMode.isListening = action.payload;
+    },
+    setVoiceRecording: (state, action: PayloadAction<boolean>) => {
+      state.voiceMode.isRecording = action.payload;
+    },
+    setVoiceTranscribing: (state, action: PayloadAction<boolean>) => {
+      state.voiceMode.isTranscribing = action.payload;
+    },
+    setVoiceError: (state, action: PayloadAction<string | null>) => {
+      state.voiceMode.error = action.payload;
+    },
+    resetVoiceMode: (state) => {
+      state.voiceMode = {
+        enabled: state.voiceMode.enabled, // enabled 상태는 유지
+        inputMode: state.voiceMode.inputMode, // inputMode 상태는 유지
+        isListening: false,
+        isRecording: false,
+        isTranscribing: false,
+        error: null,
+      };
+    },
+    // TTS 모드 액션
+    setTTSMuted: (state, action: PayloadAction<boolean>) => {
+      state.ttsMode.isMuted = action.payload;
+    },
+    setTTSPlaying: (state, action: PayloadAction<boolean>) => {
+      state.ttsMode.isPlaying = action.payload;
+    },
+    setTTSLoading: (state, action: PayloadAction<boolean>) => {
+      state.ttsMode.isLoading = action.payload;
+    },
+    setTTSError: (state, action: PayloadAction<string | null>) => {
+      state.ttsMode.error = action.payload;
+    },
+    resetTTSMode: (state) => {
+      state.ttsMode = {
+        isMuted: state.ttsMode.isMuted, // 음소거 상태는 유지
+        isPlaying: false,
+        isLoading: false,
+        error: null,
+      };
+    },
   },
 });
 
@@ -82,5 +171,19 @@ export const {
   setSessionsLoading,
   setHistoryLoading,
   loadSessionHistory,
+  // 음성 모드 액션 (STT)
+  setVoiceModeEnabled,
+  setVoiceInputMode,
+  setVoiceListening,
+  setVoiceRecording,
+  setVoiceTranscribing,
+  setVoiceError,
+  resetVoiceMode,
+  // TTS 모드 액션
+  setTTSMuted,
+  setTTSPlaying,
+  setTTSLoading,
+  setTTSError,
+  resetTTSMode,
 } = chatSlice.actions;
 export default chatSlice.reducer;

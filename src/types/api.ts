@@ -1,4 +1,46 @@
-// Authentication Types
+// =============================================================================
+// Institution Types (New simplified auth)
+// =============================================================================
+
+export type InstitutionType = 'CARE_FACILITY' | 'COMMUNITY_CENTER';
+
+export interface DistrictFacility {
+  id: string;
+  name: string;
+  facilityType: InstitutionType;
+  district: string;
+  address: string;
+}
+
+export interface InstitutionLoginRequest {
+  facilityId: string;
+  facilityType: InstitutionType;
+  password: string;
+}
+
+export interface InstitutionLoginResponse {
+  accessToken: string;
+  refreshToken: string;
+  institution: {
+    id: string;
+    name: string;
+    facilityType: InstitutionType;
+    district: string;
+    isPasswordChanged: boolean;
+  };
+}
+
+export interface ChangeInstitutionPasswordRequest {
+  facilityId: string;
+  facilityType: InstitutionType;
+  currentPassword: string;
+  newPassword: string;
+}
+
+// =============================================================================
+// Legacy Authentication Types (deprecated)
+// =============================================================================
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -15,25 +57,85 @@ export interface LoginResponse {
   };
 }
 
+// =============================================================================
+// Teacher/Institution Info (supports both auth methods)
+// =============================================================================
+
 export interface TeacherInfo {
-  user_id: string;
-  email: string;
-  real_name: string;
-  guardian_type: string;
-  institution_id: string;
-  institution_type: string;
-  institution_name: string;
+  // Primary fields (always available for institution-based auth)
+  facility_id: string;
+  facility_type: string;
+  facility_name: string;
+  district: string | null;
+
+  // Legacy fields (optional, for backward compatibility)
+  user_id: string | null;
+  email: string | null;
+  real_name: string | null;
+  guardian_type: string | null;
+
+  // Aliases (backward compatibility)
+  institution_id?: string;
+  institution_type?: string;
+  institution_name?: string;
 }
 
 export interface ChildInfo {
   id: string;
   name: string;
   birth_date: string;
-  age: number;
+  age: number; // 만 나이 (정수)
+  age_display: string; // 나이 표시 (예: "만 14세")
   gender: string;
   child_type: string;
   is_eligible: boolean; // 9-15세 대상 여부
+  is_over_14: boolean; // 만 14세 이상 여부 (본인 동의 필요 여부)
   has_pin: boolean; // PIN 설정 여부
+  has_consent?: boolean; // 동의 여부 (optional for backward compatibility)
+  // 14세 기준 분기 동의 상태 (신규)
+  has_guardian_consent?: boolean; // 보호자 동의 여부
+  has_child_consent?: boolean; // 아동 본인 동의 여부 (14세 이상)
+  consent_status?: 'COMPLETE' | 'NEED_GUARDIAN' | 'NEED_CHILD' | 'NEED_BOTH'; // 통합 동의 상태
+}
+
+// =============================================================================
+// Consent Types (동의 관리)
+// =============================================================================
+
+export interface ConsentItems {
+  personal_info: boolean; // 개인정보 수집·이용 및 제3자 제공 동의 (필수)
+  sensitive_data: boolean; // 민감정보 처리 동의 (필수)
+  research_data: boolean; // 비식별화 데이터 연구 활용 동의 (선택)
+  child_self_consent: boolean; // 아동 본인 동의 (14세 이상 아동인 경우 필수)
+}
+
+export interface ConsentStatusResponse {
+  has_consent: boolean;
+  consent_items: ConsentItems | null;
+  consent_version: string | null;
+  consented_at: string | null;
+  is_valid: boolean;
+}
+
+export interface AcceptConsentRequest {
+  child_id: string;
+  consent_items: ConsentItems;
+  is_child_over_14: boolean;
+  document_url?: string;
+}
+
+export interface AcceptConsentResponse {
+  id: string;
+  child_id: string;
+  consent_items: ConsentItems;
+  consent_version: string;
+  has_valid_consent: boolean;
+  consented_at: string;
+}
+
+export interface DocumentUrlResponse {
+  url: string;
+  version: string;
 }
 
 // PIN Types
@@ -153,6 +255,45 @@ export interface SessionDetailResponse {
   created_at: string;
   updated_at: string;
   messages: MessageResponse[];
+}
+
+// =============================================================================
+// Guardian Consent Types (보호자 MMS 동의)
+// =============================================================================
+
+/** 보호자 동의 항목 (childSelfConsent 제외) */
+export interface GuardianConsentItems {
+  personal_info: boolean; // 개인정보 수집·이용 및 제3자 제공 동의 (필수)
+  sensitive_data: boolean; // 민감정보 처리 동의 (필수)
+  research_data: boolean; // 비식별화 데이터 연구 활용 동의 (선택)
+}
+
+/** 보호자 동의 토큰 검증 응답 */
+export interface VerifyGuardianTokenResponse {
+  valid: boolean;
+  expired: boolean;
+  already_consented: boolean;
+  child_id: string | null;
+  child_name: string | null;
+  child_age: number | null;
+  institution_name: string | null;
+  error_message: string | null;
+}
+
+/** 보호자 동의 제출 요청 */
+export interface AcceptGuardianConsentRequest {
+  token: string;
+  consent_items: GuardianConsentItems;
+  guardian_relation: string; // '부모' | '시설담당자' | '기타'
+}
+
+/** 보호자 동의 제출 응답 */
+export interface AcceptGuardianConsentResponse {
+  success: boolean;
+  child_id: string;
+  child_name: string;
+  message: string;
+  consented_at: string;
 }
 
 // Error Types
