@@ -76,7 +76,8 @@ export default function ChildSelectPage() {
 
   // 14세 기준 동의 상태 확인
   const getConsentStatus = (child: ChildInfo) => {
-    const isOver14 = child.age >= 14;
+    // 백엔드에서 제공하는 is_over_14 필드 사용 (만 나이 기준)
+    const isOver14 = child.is_over_14 ?? child.age >= 14;
 
     // 새로운 필드가 있으면 사용
     if (child.consent_status !== undefined) {
@@ -294,7 +295,7 @@ export default function ChildSelectPage() {
                           </div>
                           <div className={styles.info}>
                             <h3>{child.name}</h3>
-                            <p>{child.age}세</p>
+                            <p>{child.age_display ?? `${child.age}세`}</p>
                           </div>
                           {needsGuardianConsent && (
                             <span className={styles.guardianConsentBadge}>보호자 동의 대기</span>
@@ -328,7 +329,7 @@ export default function ChildSelectPage() {
                         </div>
                         <div className={styles.info}>
                           <h3>{child.name}</h3>
-                          <p>{child.age}세</p>
+                          <p>{child.age_display ?? `${child.age}세`}</p>
                         </div>
                         <span className={styles.badge}>이용 불가</span>
                       </div>

@@ -84,10 +84,12 @@ export interface ChildInfo {
   id: string;
   name: string;
   birth_date: string;
-  age: number;
+  age: number; // 만 나이 (정수)
+  age_display: string; // 나이 표시 (예: "만 14세")
   gender: string;
   child_type: string;
   is_eligible: boolean; // 9-15세 대상 여부
+  is_over_14: boolean; // 만 14세 이상 여부 (본인 동의 필요 여부)
   has_pin: boolean; // PIN 설정 여부
   has_consent?: boolean; // 동의 여부 (optional for backward compatibility)
   // 14세 기준 분기 동의 상태 (신규)

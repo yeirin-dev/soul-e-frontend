@@ -22,10 +22,10 @@ export default function ConsentPage() {
     child_self_consent: false,
   });
 
-  // 14세 이상 여부 계산
+  // 14세 이상 여부 (백엔드에서 제공하는 is_over_14 필드 사용, 만 나이 기준)
   const isChildOver14 = useMemo(() => {
     if (!selectedChild) return false;
-    return selectedChild.age >= 14;
+    return selectedChild.is_over_14 ?? selectedChild.age >= 14;
   }, [selectedChild]);
 
   // 인증 및 아동 선택 확인
