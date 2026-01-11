@@ -53,4 +53,14 @@
   @include screen(mobile) {
     padding: 32px 20px 24px;
   }
+
+  // 매우 작은 화면 (세로 높이 550px 이하)
+  @media only screen and (max-height: 550px) {
+    padding: 24px 20px 16px;
+  }
+
+  // 극단적으로 작은 화면 (세로 높이 450px 이하)
+  @media only screen and (max-height: 450px) {
+    padding: 16px 16px 12px;
+  }
 }

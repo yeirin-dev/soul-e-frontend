@@ -122,6 +122,22 @@
 
   .authSection {
     gap: 0.5rem;
-    justify-content: center;
+    justify-content: flex-start;
+  }
+}
+
+// 매우 극단적으로 작은 화면 (450px 이하) - 모든 요소 최소화
+@media only screen and (max-height: 450px) {
+  .characterContainer {
+    display: none;
+  }
+
+  .authSection {
+    gap: 0.25rem;
+    justify-content: flex-start;
+  }
+
+  .formContainer {
+    gap: 0.5rem;
   }
 }
