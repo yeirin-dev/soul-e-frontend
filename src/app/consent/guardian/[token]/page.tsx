@@ -362,7 +362,7 @@ export default function GuardianConsentPage() {
           {/* 보호자 관계 선택 */}
           <div className={styles.relationSection}>
             <p className={styles.relationLabel}>
-              <span className={styles.required}>[필수]</span> 보호자와의 관계
+              <span className={styles.required}>[필수]</span> 아동과의 관계
             </p>
             <div className={styles.relationOptions}>
               {GUARDIAN_RELATIONS.map((relation) => (
