@@ -146,10 +146,15 @@ declare global {
   }
 }
 
+// Safari/iOS 감지
+const isSafari = typeof navigator !== 'undefined' && /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
+
 /**
  * Safari 호환 AudioContext 생성
  * - Safari는 webkitAudioContext 사용 필요
  * - Safari는 특정 sample rate만 지원 (44100, 48000)
+ * - Safari는 4개 AudioContext 인스턴스 제한이 있음
  */
 function createAudioContext(preferredSampleRate?: number): AudioContext {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -158,12 +163,9 @@ function createAudioContext(preferredSampleRate?: number): AudioContext {
     throw new Error('Web Audio API를 지원하지 않는 브라우저입니다.');
   }
 
-  // Safari 감지
-  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-
-  // Safari는 sample rate 지정 시 문제 발생할 수 있음
+  // Safari/iOS는 sample rate 지정 시 문제 발생할 수 있음
   // 기본 sample rate 사용 후 리샘플링
-  if (isSafari) {
+  if (isSafari || isIOS) {
     return new AudioContextClass();
   }
 
@@ -171,6 +173,39 @@ function createAudioContext(preferredSampleRate?: number): AudioContext {
   return new AudioContextClass({
     sampleRate: preferredSampleRate
   });
+}
+
+/**
+ * AudioContext 상태가 재생 가능한지 확인
+ * Safari iOS는 'suspended', 'interrupted' 상태 모두 처리 필요
+ */
+function isAudioContextPlayable(state: AudioContextState | 'interrupted'): boolean {
+  return state === 'running';
+}
+
+/**
+ * AudioContext resume 시도
+ * Safari iOS의 'interrupted' 상태도 처리
+ */
+async function tryResumeAudioContext(audioContext: AudioContext): Promise<boolean> {
+  const state = audioContext.state as AudioContextState | 'interrupted';
+
+  if (state === 'running') {
+    return true;
+  }
+
+  if (state === 'closed') {
+    return false;
+  }
+
+  // 'suspended' 또는 'interrupted' 상태 처리
+  try {
+    await audioContext.resume();
+    return audioContext.state === 'running';
+  } catch (err) {
+    console.warn('AudioContext resume failed:', err);
+    return false;
+  }
 }
 
 // =============================================================================
@@ -199,6 +234,8 @@ export function useTTSPlayer({
   const onErrorRef = useRef(onError);
   // PCM 청크 경계가 샘플 경계와 맞지 않을 때 남은 바이트 버퍼
   const pendingByteRef = useRef<number | null>(null);
+  // Safari/iOS 안전장치 타임아웃 ID
+  const safetyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Update refs
   useEffect(() => {
@@ -223,6 +260,29 @@ export function useTTSPlayer({
       cleanupAudio();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Safari/iOS: 탭 전환이나 화면 복귀 시 AudioContext 자동 복구
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible' && audioContextRef.current) {
+        const state = audioContextRef.current.state as AudioContextState | 'interrupted';
+
+        // 'interrupted' 또는 'suspended' 상태면 resume 시도
+        if (state === 'interrupted' || state === 'suspended') {
+          console.log(`[TTS] Visibility changed to visible, AudioContext state: ${state}, attempting resume...`);
+          const resumed = await tryResumeAudioContext(audioContextRef.current);
+          console.log(`[TTS] AudioContext resume result: ${resumed}, new state: ${audioContextRef.current.state}`);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   /** AudioContext 가져오기 (lazy initialization) */
@@ -263,9 +323,17 @@ export function useTTSPlayer({
     return output;
   }, []);
 
-  /** 오디오 정리 */
-  const cleanupAudio = useCallback(() => {
-    // 모든 재생 중인 소스 중지
+  /**
+   * 현재 재생 중인 소스만 정리 (AudioContext는 유지)
+   * Safari의 AudioContext 인스턴스 제한(4개)을 고려해 context는 재사용
+   */
+  const stopPlayingSources = useCallback(() => {
+    // 안전장치 타이머 정리
+    if (safetyTimeoutRef.current) {
+      clearTimeout(safetyTimeoutRef.current);
+      safetyTimeoutRef.current = null;
+    }
+
     playingSourcesRef.current.forEach(({ source }) => {
       try {
         source.stop();
@@ -278,22 +346,31 @@ export function useTTSPlayer({
     nextStartTimeRef.current = 0;
     isStreamingCompleteRef.current = false;
     pendingByteRef.current = null;
+  }, []);
 
-    // AudioContext 닫기
+  /**
+   * 오디오 완전 정리 (AudioContext도 닫음)
+   * 컴포넌트 언마운트 시에만 사용
+   */
+  const cleanupAudio = useCallback(() => {
+    stopPlayingSources();
+
+    // AudioContext 닫기 (언마운트 시에만)
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
       audioContextRef.current.close().catch(() => {});
       audioContextRef.current = null;
     }
-  }, []);
+  }, [stopPlayingSources]);
 
-  /** 이전 재생 및 요청 정리 */
+  /** 이전 재생 및 요청 정리 (AudioContext는 재사용을 위해 유지) */
   const cleanupPrevious = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    cleanupAudio();
-  }, [cleanupAudio]);
+    // AudioContext는 유지하고 재생 소스만 정리
+    stopPlayingSources();
+  }, [stopPlayingSources]);
 
   /** 음소거 토글 */
   const toggleMute = useCallback(() => {
@@ -322,13 +399,21 @@ export function useTTSPlayer({
    * AudioContext 사전 초기화 (Safari 호환)
    * Safari에서는 사용자 제스처 내에서 AudioContext를 생성/resume해야 함
    * 첫 사용자 상호작용(클릭, 터치) 시 호출 권장
+   *
+   * Safari/iOS 호환성 주의사항:
+   * - 'suspended' 상태: 일반적인 일시정지, resume()으로 재개 가능
+   * - 'interrupted' 상태: iOS Safari에서 탭 전환/화면 꺼짐 시 발생, resume()으로 재개 필요
+   * - AudioContext 인스턴스 제한: Safari는 4개까지만 허용
    */
   const unlock = useCallback(async (): Promise<void> => {
     try {
-      // 기존 context가 있으면 resume만
+      // 기존 context가 있으면 resume 시도
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        if (audioContextRef.current.state === 'suspended') {
-          await audioContextRef.current.resume();
+        const state = audioContextRef.current.state as AudioContextState | 'interrupted';
+
+        // 'suspended' 또는 'interrupted' 상태 모두 resume 시도
+        if (state === 'suspended' || state === 'interrupted') {
+          await tryResumeAudioContext(audioContextRef.current);
         }
         return;
       }
@@ -338,17 +423,17 @@ export function useTTSPlayer({
       audioContextRef.current = audioContext;
 
       // Safari에서 필요한 무음 버퍼 재생으로 unlock
-      if (audioContext.state === 'suspended') {
-        await audioContext.resume();
-      }
+      await tryResumeAudioContext(audioContext);
 
-      // 무음 버퍼를 짧게 재생하여 확실히 unlock
-      const buffer = audioContext.createBuffer(1, 1, audioContext.sampleRate);
-      const source = audioContext.createBufferSource();
-      source.buffer = buffer;
-      source.connect(audioContext.destination);
-      source.start(0);
-      source.stop(0.001);
+      // 무음 버퍼를 짧게 재생하여 확실히 unlock (Safari warm-up)
+      if (audioContext.state === 'running') {
+        const buffer = audioContext.createBuffer(1, 1, audioContext.sampleRate);
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioContext.destination);
+        source.start(0);
+        source.stop(0.001);
+      }
     } catch (err) {
       console.warn('AudioContext unlock failed:', err);
     }
@@ -374,9 +459,10 @@ export function useTTSPlayer({
 
     const audioContext = getAudioContext(format.sampleRate);
 
-    // suspended 상태면 resume (Safari에서 특히 중요)
-    if (audioContext.state === 'suspended') {
-      audioContext.resume().catch(() => {
+    // suspended 또는 interrupted 상태면 resume (Safari/iOS에서 특히 중요)
+    const state = audioContext.state as AudioContextState | 'interrupted';
+    if (state === 'suspended' || state === 'interrupted') {
+      tryResumeAudioContext(audioContext).catch(() => {
         // Safari에서 사용자 제스처 없이 resume 실패할 수 있음
         console.warn('AudioContext resume failed - may need user gesture');
       });
@@ -456,6 +542,11 @@ export function useTTSPlayer({
         playingSourcesRef.current.length === 0 &&
         isStreamingCompleteRef.current
       ) {
+        // 안전장치 타이머 정리
+        if (safetyTimeoutRef.current) {
+          clearTimeout(safetyTimeoutRef.current);
+          safetyTimeoutRef.current = null;
+        }
         dispatch(setTTSPlaying(false));
         onPlayCompleteRef.current?.();
       }
@@ -491,7 +582,36 @@ export function useTTSPlayer({
 
     let hasStartedPlaying = false;
 
+    // Safari/iOS 안전장치: 오디오가 30초 이상 재생되지 않으면 강제 완료
+    // (AudioContext 문제로 onended가 호출되지 않는 경우 대비)
+    const clearSafetyTimeout = () => {
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current);
+        safetyTimeoutRef.current = null;
+      }
+    };
+    const setSafetyTimeout = () => {
+      clearSafetyTimeout();
+      safetyTimeoutRef.current = setTimeout(() => {
+        if (requestId === currentRequestIdRef.current && playingSourcesRef.current.length > 0) {
+          console.warn('[TTS] Safety timeout triggered - forcing playback completion');
+          stopPlayingSources();
+          dispatch(setTTSPlaying(false));
+          onPlayCompleteRef.current?.();
+        }
+      }, 30000); // 30초 타임아웃
+    };
+
     try {
+      // Safari/iOS: 재생 전 AudioContext 상태 확인 및 resume
+      if (audioContextRef.current) {
+        const state = audioContextRef.current.state as AudioContextState | 'interrupted';
+        if (state === 'suspended' || state === 'interrupted') {
+          console.log(`[TTS] AudioContext state is ${state}, attempting resume before speak...`);
+          await tryResumeAudioContext(audioContextRef.current);
+        }
+      }
+
       await voiceApi.synthesizeStreamPCM(
         cleanText,
         (chunk, format) => {
@@ -503,6 +623,7 @@ export function useTTSPlayer({
             hasStartedPlaying = true;
             dispatch(setTTSLoading(false));
             dispatch(setTTSPlaying(true));
+            setSafetyTimeout(); // 안전장치 타이머 시작
           }
 
           // 청크 재생
@@ -512,17 +633,33 @@ export function useTTSPlayer({
       );
 
       // Race condition 체크
-      if (requestId !== currentRequestIdRef.current) return;
+      if (requestId !== currentRequestIdRef.current) {
+        clearSafetyTimeout();
+        return;
+      }
 
       // 스트리밍 완료 표시
       isStreamingCompleteRef.current = true;
 
       // 재생할 청크가 없었으면 완료 처리
       if (!hasStartedPlaying) {
+        clearSafetyTimeout();
         dispatch(setTTSLoading(false));
+        dispatch(setTTSPlaying(false));
+      } else {
+        // 스트리밍은 완료됐는데 모든 오디오가 이미 재생 완료된 경우 처리
+        // (onended 콜백이 isStreamingCompleteRef.current = true 이전에 실행된 경우)
+        if (playingSourcesRef.current.length === 0) {
+          clearSafetyTimeout();
+          dispatch(setTTSPlaying(false));
+          onPlayCompleteRef.current?.();
+        }
       }
 
     } catch (err) {
+      // 안전장치 타이머 정리
+      clearSafetyTimeout();
+
       // Race condition 체크
       if (requestId !== currentRequestIdRef.current) return;
 
@@ -537,7 +674,7 @@ export function useTTSPlayer({
       dispatch(setTTSPlaying(false));
       onErrorRef.current?.(errorMessage);
     }
-  }, [isMuted, dispatch, cleanupPrevious, queuePCMChunk]);
+  }, [isMuted, dispatch, cleanupPrevious, stopPlayingSources, queuePCMChunk]);
 
   return {
     speak,
