@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks/redux';
 import { acceptConsent, clearConsentError, resetConsentState } from '@/lib/store/consentSlice';
 import { SoulECharacter } from '@/components/SoulECharacter';
+import { ConsentDocumentModal } from '@/components/ConsentDocumentModal';
 import { type ConsentItems } from '@/types/api';
 import styles from '@/styles/modules/ConsentPage.module.scss';
 
@@ -21,6 +22,9 @@ export default function ConsentPage() {
     research_data: false,
     child_self_consent: false,
   });
+
+  // 동의서 모달 상태
+  const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
 
   // 14세 이상 여부 (백엔드에서 제공하는 is_over_14 필드 사용, 만 나이 기준)
   const isChildOver14 = useMemo(() => {
@@ -174,16 +178,15 @@ export default function ConsentPage() {
         {/* 동의 섹션 */}
         {!acceptSuccess && (
           <div className={styles.consentSection}>
-            {/* PDF 링크 */}
-            <a
-              href="/documents/privacy-policy-v1.0.0.pdf"
-              target="_blank"
-              rel="noopener noreferrer"
+            {/* 동의서 전문 보기 버튼 */}
+            <button
+              type="button"
+              onClick={() => setIsDocumentModalOpen(true)}
               className={styles.pdfLink}
             >
               <span className={styles.pdfIcon}>📄</span>
               개인정보 처리방침 전문 보기
-            </a>
+            </button>
 
             {/* 전체 동의 */}
             <div className={styles.allConsentBox}>
@@ -292,6 +295,12 @@ export default function ConsentPage() {
           </div>
         )}
       </main>
+
+      {/* 동의서 전문 모달 */}
+      <ConsentDocumentModal
+        isOpen={isDocumentModalOpen}
+        onClose={() => setIsDocumentModalOpen(false)}
+      />
     </div>
   );
 }

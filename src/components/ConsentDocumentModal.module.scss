@@ -1,0 +1,315 @@
+@use '../styles/index' as *;
+
+.documentContent {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+  color: $gray700;
+  font-size: 0.95rem;
+  line-height: 1.7;
+
+  // 커스텀 스크롤바
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: $gray200;
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: $main200;
+    border-radius: 4px;
+
+    &:hover {
+      background: $main300;
+    }
+  }
+
+  @include screen(mobile) {
+    max-height: 55vh;
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+}
+
+.mainTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: $main500;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid $main100;
+
+  @include screen(mobile) {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+  }
+}
+
+.intro {
+  margin-bottom: 1rem;
+  color: $gray600;
+  text-align: justify;
+}
+
+.divider {
+  border: none;
+  height: 1px;
+  background: linear-gradient(to right, transparent, $main200, transparent);
+  margin: 1.5rem 0;
+}
+
+.section {
+  margin-bottom: 1.5rem;
+}
+
+.sectionTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: $main500;
+  margin-bottom: 1rem;
+  padding-left: 0.75rem;
+  border-left: 4px solid $main400;
+
+  @include screen(mobile) {
+    font-size: 1rem;
+  }
+}
+
+.sectionIntro {
+  margin-bottom: 1rem;
+  color: $gray600;
+}
+
+.subsectionTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: $gray700;
+  margin: 1.25rem 0 0.75rem 0;
+  padding: 0.5rem 0.75rem;
+  background: $main50;
+  border-radius: 8px;
+
+  @include screen(mobile) {
+    font-size: 0.95rem;
+  }
+}
+
+.articleContent {
+  p {
+    margin-bottom: 0.75rem;
+
+    strong {
+      color: $main600;
+    }
+  }
+}
+
+.orderedList,
+.unorderedList {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+
+  li {
+    margin-bottom: 0.5rem;
+    color: $gray600;
+
+    &::marker {
+      color: $main400;
+    }
+  }
+}
+
+.unorderedList {
+  list-style-type: disc;
+
+  &.contactInfo {
+    background: $gray100;
+    padding: 1rem 1rem 1rem 2rem;
+    border-radius: 12px;
+    margin-top: 0.75rem;
+
+    li {
+      margin-bottom: 0.25rem;
+      color: $gray700;
+    }
+  }
+}
+
+.note {
+  font-size: 0.85rem;
+  color: $gray500;
+  font-style: italic;
+  margin: 0.5rem 0;
+}
+
+.warning {
+  background: linear-gradient(135deg, $caution50, rgba($caution100, 0.3));
+  border: 1px solid $caution200;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: $gray700;
+}
+
+// 테이블 스타일
+.tableWrapper {
+  overflow-x: auto;
+  margin: 1rem 0;
+  border-radius: 12px;
+  border: 1px solid $gray200;
+
+  @include screen(mobile) {
+    margin: 0.75rem -0.5rem;
+    border-radius: 8px;
+  }
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+
+  @include screen(mobile) {
+    font-size: 0.8rem;
+  }
+
+  th,
+  td {
+    padding: 0.75rem;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid $gray200;
+
+    @include screen(mobile) {
+      padding: 0.5rem;
+    }
+  }
+
+  th {
+    background: $main100;
+    color: $main600;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  td {
+    background: $gray100;
+    color: $gray700;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+}
+
+.tableList {
+  margin: 0;
+  padding-left: 1rem;
+  list-style-type: disc;
+
+  li {
+    margin-bottom: 0.25rem;
+    color: inherit;
+  }
+}
+
+.tableNote {
+  font-size: 0.8rem;
+  color: $gray500;
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
+// 동의 확인 테이블
+.consentIntro {
+  margin-bottom: 1rem;
+  color: $gray700;
+  font-weight: 500;
+}
+
+.consentTable {
+  border: 1px solid $gray300;
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 1rem 0;
+}
+
+.consentRow {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid $gray200;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &.header {
+    background: $main100;
+    font-weight: 600;
+    color: $main600;
+  }
+
+  @include screen(mobile) {
+    grid-template-columns: 1fr 60px 60px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+}
+
+.consentItem {
+  color: $gray700;
+}
+
+.consentChoice {
+  text-align: center;
+  min-width: 60px;
+  color: $gray500;
+
+  @include screen(mobile) {
+    min-width: 50px;
+  }
+}
+
+// 닫기 버튼
+.closeButtonSection {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid $gray200;
+  display: flex;
+  justify-content: center;
+}
+
+.closeBtn {
+  background: linear-gradient(135deg, $main400, $main500);
+  color: white;
+  border: none;
+  padding: 0.875rem 3rem;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba($main500, 0.3);
+
+  &:hover {
+    background: linear-gradient(135deg, $main500, $main600);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba($main500, 0.4);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  @include screen(mobile) {
+    width: 100%;
+    padding: 0.875rem 2rem;
+  }
+}

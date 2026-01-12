@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { SoulECharacter } from '@/components/SoulECharacter';
+import { ConsentDocumentModal } from '@/components/ConsentDocumentModal';
 import { guardianConsentApi } from '@/lib/api';
 import {
   type GuardianConsentItems,
@@ -35,6 +36,9 @@ export default function GuardianConsentPage() {
 
   // 제출 상태
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 동의서 모달 상태
+  const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
 
   // 토큰 검증
   const verifyToken = useCallback(async () => {
@@ -289,16 +293,15 @@ export default function GuardianConsentPage() {
 
         {/* 동의 섹션 */}
         <div className={styles.consentSection}>
-          {/* PDF 링크 */}
-          <a
-            href="/documents/privacy-policy-v1.0.0.pdf"
-            target="_blank"
-            rel="noopener noreferrer"
+          {/* 동의서 전문 보기 버튼 */}
+          <button
+            type="button"
+            onClick={() => setIsDocumentModalOpen(true)}
             className={styles.pdfLink}
           >
             <span className={styles.pdfIcon}>📄</span>
             개인정보 처리방침 전문 보기
-          </a>
+          </button>
 
           {/* 전체 동의 */}
           <div className={styles.allConsentBox}>
@@ -413,6 +416,12 @@ export default function GuardianConsentPage() {
           </div>
         )}
       </main>
+
+      {/* 동의서 전문 모달 */}
+      <ConsentDocumentModal
+        isOpen={isDocumentModalOpen}
+        onClose={() => setIsDocumentModalOpen(false)}
+      />
     </div>
   );
 }
