@@ -22,16 +22,12 @@
   }
 
   @include screen(mobile) {
+    // 모바일: 화면 상단 중앙에 배치
     top: 4px;
-    right: 4px;
-    padding: 6px 10px;
-    font-size: 11px;
-    gap: 8px;
-  }
-
-  // 매우 작은 화면에서 배너 더 작게
-  @media only screen and (max-height: 550px) {
-    padding: 4px 8px;
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 10px;
     font-size: 10px;
     gap: 6px;
 
@@ -39,6 +35,11 @@
       width: 20px;
       height: 20px;
     }
+  }
+
+  // 매우 작은 화면에서 배너 숨김
+  @media only screen and (max-height: 600px) {
+    display: none;
   }
 }
 

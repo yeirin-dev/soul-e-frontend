@@ -57,7 +57,7 @@ const initialState: ChatState = {
     error: null,
   },
   ttsMode: {
-    isMuted: false,
+    isMuted: true, // 채팅 모드가 기본이므로 음소거 기본 활성화
     isPlaying: false,
     isLoading: false,
     error: null,
@@ -115,6 +115,8 @@ const chatSlice = createSlice({
     },
     setVoiceInputMode: (state, action: PayloadAction<VoiceInputModeType>) => {
       state.voiceMode.inputMode = action.payload;
+      // 채팅 모드로 전환 시 자동 음소거, 다른 모드에서는 음소거 해제
+      state.ttsMode.isMuted = action.payload === 'chat';
     },
     setVoiceListening: (state, action: PayloadAction<boolean>) => {
       state.voiceMode.isListening = action.payload;
