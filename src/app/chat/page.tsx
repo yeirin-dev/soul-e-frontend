@@ -333,6 +333,7 @@ export default function ChatPage() {
   const {
     speak,
     toggleMute,
+    unlock: unlockAudio,
     isMuted: ttsIsMuted,
     isPlaying: ttsIsPlaying,
     isLoading: ttsIsLoading,
@@ -347,6 +348,9 @@ export default function ChatPage() {
 
   // 음성 버튼 클릭 핸들러 (모드별 분기)
   const handleVoiceButtonClick = useCallback(() => {
+    // Safari AudioContext unlock (사용자 제스처 내에서 호출)
+    unlockAudio();
+
     if (isPTTMode) {
       // 입력모드 (PTT): 토글 방식
       if (pttIsRecording) {
@@ -362,11 +366,13 @@ export default function ChatPage() {
         vadStartListening();
       }
     }
-  }, [isPTTMode, pttIsRecording, pttStartRecording, pttStopRecording, vadIsListening, vadStartListening, vadStopListening]);
+  }, [isPTTMode, pttIsRecording, pttStartRecording, pttStopRecording, vadIsListening, vadStartListening, vadStopListening, unlockAudio]);
 
   // 폼 제출 핸들러
   const handleSend = (e?: React.FormEvent, messageToSend?: string) => {
     e?.preventDefault();
+    // Safari AudioContext unlock (사용자 제스처 내에서 호출)
+    unlockAudio();
     const content = messageToSend || input.trim();
     handleSendMessage(content);
   };
@@ -422,7 +428,10 @@ export default function ChatPage() {
           isMuted={ttsIsMuted}
           isPlaying={ttsIsPlaying}
           isLoading={ttsIsLoading}
-          onClick={toggleMute}
+          onClick={() => {
+            unlockAudio(); // Safari AudioContext unlock
+            toggleMute();
+          }}
         />
 
         {/* 검사 버튼들 - CRTES-R, SDQ-A, KPRC 순서 */}

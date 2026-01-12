@@ -117,6 +117,11 @@ interface UseTTSPlayerReturn {
   stop: () => void;
   /** 음소거 토글 */
   toggleMute: () => void;
+  /**
+   * AudioContext 사전 초기화 (Safari 호환)
+   * 사용자 제스처(클릭, 터치) 이벤트 핸들러에서 호출해야 함
+   */
+  unlock: () => Promise<void>;
   /** 음소거 상태 */
   isMuted: boolean;
   /** 재생 중인지 */
@@ -131,6 +136,41 @@ interface UseTTSPlayerReturn {
 interface PlayingSource {
   source: AudioBufferSourceNode;
   endTime: number;
+}
+
+// Safari 호환성을 위한 AudioContext 타입
+type AudioContextType = typeof AudioContext;
+declare global {
+  interface Window {
+    webkitAudioContext?: AudioContextType;
+  }
+}
+
+/**
+ * Safari 호환 AudioContext 생성
+ * - Safari는 webkitAudioContext 사용 필요
+ * - Safari는 특정 sample rate만 지원 (44100, 48000)
+ */
+function createAudioContext(preferredSampleRate?: number): AudioContext {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+
+  if (!AudioContextClass) {
+    throw new Error('Web Audio API를 지원하지 않는 브라우저입니다.');
+  }
+
+  // Safari 감지
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+  // Safari는 sample rate 지정 시 문제 발생할 수 있음
+  // 기본 sample rate 사용 후 리샘플링
+  if (isSafari) {
+    return new AudioContextClass();
+  }
+
+  // 다른 브라우저는 원하는 sample rate 사용
+  return new AudioContextClass({
+    sampleRate: preferredSampleRate
+  });
 }
 
 // =============================================================================
@@ -188,9 +228,39 @@ export function useTTSPlayer({
   /** AudioContext 가져오기 (lazy initialization) */
   const getAudioContext = useCallback((sampleRate: number): AudioContext => {
     if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
-      audioContextRef.current = new AudioContext({ sampleRate });
+      audioContextRef.current = createAudioContext(sampleRate);
     }
     return audioContextRef.current;
+  }, []);
+
+  /**
+   * PCM 데이터 리샘플링 (Safari 호환)
+   * Safari의 AudioContext sample rate가 PCM sample rate와 다를 때 사용
+   */
+  const resamplePCM = useCallback((
+    inputData: Float32Array,
+    inputSampleRate: number,
+    outputSampleRate: number
+  ): Float32Array => {
+    if (inputSampleRate === outputSampleRate) {
+      return inputData;
+    }
+
+    const ratio = inputSampleRate / outputSampleRate;
+    const outputLength = Math.ceil(inputData.length / ratio);
+    const output = new Float32Array(outputLength);
+
+    for (let i = 0; i < outputLength; i++) {
+      const srcIndex = i * ratio;
+      const srcIndexFloor = Math.floor(srcIndex);
+      const srcIndexCeil = Math.min(srcIndexFloor + 1, inputData.length - 1);
+      const t = srcIndex - srcIndexFloor;
+
+      // 선형 보간
+      output[i] = inputData[srcIndexFloor] * (1 - t) + inputData[srcIndexCeil] * t;
+    }
+
+    return output;
   }, []);
 
   /** 오디오 정리 */
@@ -248,6 +318,42 @@ export function useTTSPlayer({
     dispatch(setTTSLoading(false));
   }, [dispatch, cleanupPrevious]);
 
+  /**
+   * AudioContext 사전 초기화 (Safari 호환)
+   * Safari에서는 사용자 제스처 내에서 AudioContext를 생성/resume해야 함
+   * 첫 사용자 상호작용(클릭, 터치) 시 호출 권장
+   */
+  const unlock = useCallback(async (): Promise<void> => {
+    try {
+      // 기존 context가 있으면 resume만
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        if (audioContextRef.current.state === 'suspended') {
+          await audioContextRef.current.resume();
+        }
+        return;
+      }
+
+      // 새 AudioContext 생성 (기본 sample rate)
+      const audioContext = createAudioContext();
+      audioContextRef.current = audioContext;
+
+      // Safari에서 필요한 무음 버퍼 재생으로 unlock
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+
+      // 무음 버퍼를 짧게 재생하여 확실히 unlock
+      const buffer = audioContext.createBuffer(1, 1, audioContext.sampleRate);
+      const source = audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioContext.destination);
+      source.start(0);
+      source.stop(0.001);
+    } catch (err) {
+      console.warn('AudioContext unlock failed:', err);
+    }
+  }, []);
+
   /** PCM Int16 → Float32 변환 */
   const int16ToFloat32 = useCallback((int16Array: Int16Array): Float32Array => {
     const float32Array = new Float32Array(int16Array.length);
@@ -268,9 +374,12 @@ export function useTTSPlayer({
 
     const audioContext = getAudioContext(format.sampleRate);
 
-    // suspended 상태면 resume
+    // suspended 상태면 resume (Safari에서 특히 중요)
     if (audioContext.state === 'suspended') {
-      audioContext.resume();
+      audioContext.resume().catch(() => {
+        // Safari에서 사용자 제스처 없이 resume 실패할 수 있음
+        console.warn('AudioContext resume failed - may need user gesture');
+      });
     }
 
     // 청크 바이트 배열로 변환
@@ -296,13 +405,19 @@ export function useTTSPlayer({
 
     // Int16 PCM → Float32 변환
     const int16Array = new Int16Array(bytes.buffer, bytes.byteOffset, bytes.length / 2);
-    const float32Array = int16ToFloat32(int16Array);
+    let float32Array = int16ToFloat32(int16Array);
 
-    // AudioBuffer 생성
+    // Safari 호환: AudioContext의 sample rate가 PCM과 다르면 리샘플링
+    const contextSampleRate = audioContext.sampleRate;
+    if (contextSampleRate !== format.sampleRate) {
+      float32Array = resamplePCM(float32Array, format.sampleRate, contextSampleRate);
+    }
+
+    // AudioBuffer 생성 (AudioContext의 sample rate 사용)
     const audioBuffer = audioContext.createBuffer(
       format.channels,
       float32Array.length,
-      format.sampleRate
+      contextSampleRate
     );
     audioBuffer.getChannelData(0).set(float32Array);
 
@@ -345,7 +460,7 @@ export function useTTSPlayer({
         onPlayCompleteRef.current?.();
       }
     };
-  }, [dispatch, getAudioContext, int16ToFloat32]);
+  }, [dispatch, getAudioContext, int16ToFloat32, resamplePCM]);
 
   /** TTS 재생 (PCM 스트리밍) */
   const speak = useCallback(async (text: string) => {
@@ -428,6 +543,7 @@ export function useTTSPlayer({
     speak,
     stop,
     toggleMute,
+    unlock,
     isMuted,
     isPlaying,
     isLoading,
