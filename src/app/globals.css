@@ -3,6 +3,15 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Safe Area Insets (폴백) */
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+
+  /* 동적 뷰포트 높이 (폴백) */
+  --vh: 1vh;
 }
 
 @theme inline {
@@ -19,8 +28,75 @@
   }
 }
 
+/* 기본 리셋 및 박스 사이징 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* iOS에서 스크롤 바운스 개선 */
+  -webkit-overflow-scrolling: touch;
+  /* 텍스트 크기 자동 조절 방지 */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  /* 모바일에서 오버스크롤 방지 */
+  overscroll-behavior: none;
+  /* iOS Safari에서 100vh 문제 해결 */
+  min-height: 100vh;
+  min-height: 100dvh;
+  /* 터치 하이라이트 제거 */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 포커스 아웃라인 개선 (접근성) */
+:focus-visible {
+  outline: 2px solid #ffa600;
+  outline-offset: 2px;
+}
+
+/* 터치 디바이스에서 호버 효과 비활성화 */
+@media (hover: none) {
+  button:hover,
+  a:hover {
+    /* 터치 디바이스에서는 hover 상태 무시 */
+  }
+}
+
+/* 스크롤바 스타일링 (웹킷) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* 모바일에서 스크롤바 숨기기 */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
 }

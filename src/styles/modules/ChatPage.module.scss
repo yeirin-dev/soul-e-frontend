@@ -4,57 +4,120 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh; // 동적 뷰포트 높이 (모바일 주소창 대응)
   background-color: #f5f5f5;
+  // Safe area 지원 (노치 디바이스)
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 .header {
   background: white;
-  padding: 1.25rem 2rem;
+  padding: 1rem 1.5rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
   align-items: center;
   z-index: 10;
-  gap: 1.25rem;
+  gap: 0.75rem;
+  position: relative;
+
+  // 데스크탑에서는 한 줄 배치
+  @media (min-width: 1025px) {
+    flex-wrap: nowrap;
+    padding: 1.25rem 2rem;
+    gap: 1.25rem;
+  }
 
   .backButton {
     background: none;
     border: none;
-    font-size: 2rem;
+    font-size: 1.75rem;
     cursor: pointer;
-    padding: 0.5rem 0.75rem;
+    padding: 0.5rem;
     color: $gray600;
     transition: all 0.2s;
     border-radius: 12px;
+    flex-shrink: 0;
+    // 터치 타겟 최소 44px
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
     &:hover {
       color: $main100;
       background: $main400;
     }
+
+    @media (min-width: 1025px) {
+      font-size: 2rem;
+      padding: 0.5rem 0.75rem;
+    }
   }
 
   h2 {
-    font-size: 1.5rem;
+    font-size: 1.15rem;
     color: $gray700;
     font-weight: bold;
     flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+
+    @media (min-width: 769px) {
+      font-size: 1.35rem;
+    }
+
+    @media (min-width: 1025px) {
+      font-size: 1.5rem;
+    }
+  }
+
+  // 헤더 컨트롤 그룹 (음성모드 토글, 음소거 버튼)
+  .headerControls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
   }
 
   .childName {
-    font-size: 1.1rem;
+    font-size: 0.9rem;
     background: $main400;
     color: #c77800;
-    padding: 0.6rem 1.2rem;
-    border-radius: 24px;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
     font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+
+    @media (min-width: 769px) {
+      font-size: 1rem;
+      padding: 0.5rem 1rem;
+    }
+
+    @media (min-width: 1025px) {
+      font-size: 1.1rem;
+      padding: 0.6rem 1.2rem;
+      border-radius: 24px;
+    }
   }
 }
 
 // 검사 버튼 컨테이너 (여러 검사 버튼을 담음)
 .assessmentButtons {
   display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  gap: 0.35rem;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+
+  @media (min-width: 769px) {
+    gap: 0.5rem;
+  }
 }
 
 // 검사하기 버튼
@@ -62,25 +125,63 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 0.25rem;
   background: linear-gradient(135deg, $sub200, #4cd48b);
   border: none;
-  padding: 0.7rem 1.25rem;
-  border-radius: 24px;
+  padding: 0.4rem 0.6rem;
+  border-radius: 16px;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: white;
   transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(56, 189, 129, 0.3);
-  min-width: 120px;
+  box-shadow: 0 2px 6px rgba(56, 189, 129, 0.25);
+  white-space: nowrap;
+  // 터치 타겟 최소 크기
+  min-height: 36px;
 
   svg {
     flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+  }
+
+  @media (min-width: 481px) {
+    padding: 0.5rem 0.8rem;
+    font-size: 0.8rem;
+    gap: 0.3rem;
+    border-radius: 18px;
+
+    svg {
+      width: 15px;
+      height: 15px;
+    }
+  }
+
+  @media (min-width: 769px) {
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+    gap: 0.4rem;
+    border-radius: 20px;
+    min-height: 40px;
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  @media (min-width: 1025px) {
+    padding: 0.7rem 1.25rem;
+    font-size: 1rem;
+    gap: 0.5rem;
+    border-radius: 24px;
+    box-shadow: 0 2px 8px rgba(56, 189, 129, 0.3);
+    min-width: 100px;
   }
 
   &:hover:not(:disabled) {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(56, 189, 129, 0.4);
   }
 
@@ -118,14 +219,6 @@
     }
   }
 
-  // 버튼이 여러 개일 때 (컨테이너 안에서) 더 작게 표시
-  .assessmentButtons &:not(:only-child) {
-    padding: 0.5rem 0.9rem;
-    font-size: 0.85rem;
-    min-width: auto;
-    gap: 0.35rem;
-  }
-
   // 버튼 텍스트 (아이콘 옆 텍스트)
   .buttonText {
     display: flex;
@@ -136,7 +229,7 @@
 
   // 서브 텍스트 (완료/이어서 표시)
   .buttonSubText {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     font-weight: 400;
     opacity: 0.9;
   }
@@ -154,21 +247,46 @@
 // 세션 선택 드롭다운
 .sessionSelector {
   position: relative;
+  flex-shrink: 0;
 }
 
 .sessionButton {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.4rem;
   background: white;
-  border: 2px solid $gray300;
-  padding: 0.7rem 1.25rem;
-  border-radius: 24px;
+  border: 1.5px solid $gray300;
+  padding: 0.45rem 0.75rem;
+  border-radius: 18px;
   cursor: pointer;
-  font-size: 1.1rem;
+  font-size: 0.8rem;
   font-weight: 500;
   color: $gray600;
   transition: all 0.2s;
+  white-space: nowrap;
+  // 터치 타겟 최소 크기
+  min-height: 36px;
+
+  @media (min-width: 481px) {
+    padding: 0.5rem 0.9rem;
+    font-size: 0.85rem;
+    gap: 0.5rem;
+  }
+
+  @media (min-width: 769px) {
+    padding: 0.6rem 1rem;
+    font-size: 0.95rem;
+    border-radius: 20px;
+    min-height: 40px;
+  }
+
+  @media (min-width: 1025px) {
+    padding: 0.7rem 1.25rem;
+    font-size: 1.1rem;
+    gap: 0.6rem;
+    border: 2px solid $gray300;
+    border-radius: 24px;
+  }
 
   &:hover {
     border-color: $main100;
@@ -176,23 +294,42 @@
   }
 
   .dropdownIcon {
-    font-size: 0.85rem;
+    font-size: 0.7rem;
     color: $gray400;
+
+    @media (min-width: 769px) {
+      font-size: 0.8rem;
+    }
+
+    @media (min-width: 1025px) {
+      font-size: 0.85rem;
+    }
   }
 }
 
 .sessionDropdown {
   position: absolute;
-  top: calc(100% + 10px);
+  top: calc(100% + 8px);
   right: 0;
-  width: 320px;
-  max-height: 450px;
+  width: min(280px, calc(100vw - 2rem));
+  max-height: min(400px, 60vh);
   overflow-y: auto;
   background: white;
-  border-radius: 20px;
+  border-radius: 16px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
   z-index: 100;
   animation: slideDown 0.2s ease-out;
+
+  @media (min-width: 481px) {
+    width: 300px;
+    border-radius: 18px;
+  }
+
+  @media (min-width: 769px) {
+    width: 320px;
+    max-height: 450px;
+    border-radius: 20px;
+  }
 }
 
 .sessionItem {
@@ -200,12 +337,16 @@
   flex-direction: column;
   align-items: flex-start;
   width: 100%;
-  padding: 1rem 1.25rem;
+  padding: 0.85rem 1rem;
   border: none;
   background: none;
   cursor: pointer;
   text-align: left;
   transition: all 0.15s;
+
+  @media (min-width: 769px) {
+    padding: 1rem 1.25rem;
+  }
 
   &:hover {
     background: $main400;
@@ -219,41 +360,64 @@
   &.newChat {
     color: $main100;
     font-weight: 600;
-    font-size: 1.1rem;
+    font-size: 1rem;
     border-bottom: 1px solid $gray200;
+
+    @media (min-width: 769px) {
+      font-size: 1.1rem;
+    }
   }
 }
 
 .sessionPreview {
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   color: $gray700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+
+  @media (min-width: 769px) {
+    font-size: 1.05rem;
+  }
 }
 
 .sessionMeta {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   color: $gray400;
-  margin-top: 0.35rem;
+  margin-top: 0.3rem;
+
+  @media (min-width: 769px) {
+    font-size: 0.9rem;
+    margin-top: 0.35rem;
+  }
 }
 
 .sessionDivider {
-  padding: 0.6rem 1.25rem;
-  font-size: 0.85rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
   color: $gray400;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+
+  @media (min-width: 769px) {
+    padding: 0.6rem 1.25rem;
+    font-size: 0.85rem;
+  }
 }
 
 .sessionLoading,
 .sessionEmpty {
-  padding: 2rem 1.25rem;
+  padding: 1.5rem 1rem;
   text-align: center;
   color: $gray500;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
+
+  @media (min-width: 769px) {
+    padding: 2rem 1.25rem;
+    font-size: 1.05rem;
+  }
 }
 
 .errorBanner {
@@ -291,10 +455,29 @@
 .chatWindow {
   flex: 1;
   overflow-y: auto;
-  padding: 2.5rem 4rem;
+  overflow-x: hidden;
+  padding: 1rem 0.75rem;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1rem;
+  // iOS 스크롤 개선
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+
+  @media (min-width: 481px) {
+    padding: 1.25rem 1rem;
+    gap: 1.25rem;
+  }
+
+  @media (min-width: 769px) {
+    padding: 1.75rem 2rem;
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 1025px) {
+    padding: 2.5rem 4rem;
+    gap: 2rem;
+  }
 
   // 배경 그라데이션 (스크롤 시 상단 페이드)
   &::before {
@@ -303,10 +486,15 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 2rem;
+    height: 1.5rem;
     background: linear-gradient(180deg, #f5f5f5 0%, transparent 100%);
     pointer-events: none;
     z-index: 1;
+    flex-shrink: 0;
+
+    @media (min-width: 769px) {
+      height: 2rem;
+    }
   }
 }
 
@@ -333,30 +521,70 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  gap: 2.5rem;
-  padding: 2rem;
+  gap: 1.5rem;
+  padding: 1rem;
   animation: fadeIn 0.6s ease-out;
+
+  @media (min-width: 481px) {
+    gap: 2rem;
+    padding: 1.5rem;
+  }
+
+  @media (min-width: 769px) {
+    gap: 2.5rem;
+    padding: 2rem;
+  }
 }
 
 .greetingText {
   text-align: center;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem;
+
+  @media (min-width: 769px) {
+    gap: 1rem;
+  }
 }
 
 .greetingTitle {
-  font-size: 2rem;
+  font-size: 1.35rem;
   font-weight: bold;
   color: $gray700;
   margin: 0;
+
+  @media (min-width: 481px) {
+    font-size: 1.5rem;
+  }
+
+  @media (min-width: 769px) {
+    font-size: 1.75rem;
+  }
+
+  @media (min-width: 1025px) {
+    font-size: 2rem;
+  }
 }
 
 .greetingDesc {
-  font-size: 1.35rem;
+  font-size: 1rem;
   color: $gray600;
-  line-height: 1.7;
+  line-height: 1.6;
   margin: 0;
+
+  @media (min-width: 481px) {
+    font-size: 1.1rem;
+    line-height: 1.65;
+  }
+
+  @media (min-width: 769px) {
+    font-size: 1.2rem;
+    line-height: 1.7;
+  }
+
+  @media (min-width: 1025px) {
+    font-size: 1.35rem;
+  }
 }
 
 @keyframes fadeIn {
@@ -373,9 +601,23 @@
 // 메시지 행
 .messageRow {
   display: flex;
-  gap: 1rem;
-  max-width: 80%;
+  gap: 0.5rem;
+  max-width: 90%;
   animation: bounceIn 0.6s cubic-bezier(0.25, 1, 0.9, 1) both;
+
+  @media (min-width: 481px) {
+    gap: 0.75rem;
+    max-width: 88%;
+  }
+
+  @media (min-width: 769px) {
+    gap: 1rem;
+    max-width: 85%;
+  }
+
+  @media (min-width: 1025px) {
+    max-width: 80%;
+  }
 
   &.user {
     align-self: flex-end;
@@ -388,7 +630,11 @@
 
   &.system {
     align-self: center;
-    max-width: 90%;
+    max-width: 95%;
+
+    @media (min-width: 769px) {
+      max-width: 90%;
+    }
   }
 }
 
@@ -402,36 +648,84 @@
 
 // 메시지 버블
 .bubble {
-  padding: 18px 28px;
-  line-height: 1.7;
-  font-size: 1.25rem;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  padding: 12px 16px;
+  line-height: 1.6;
+  font-size: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   white-space: pre-wrap;
   word-break: keep-all;
+  // 긴 단어 줄바꿈
+  overflow-wrap: break-word;
+
+  @media (min-width: 481px) {
+    padding: 14px 20px;
+    font-size: 1.05rem;
+    line-height: 1.65;
+  }
+
+  @media (min-width: 769px) {
+    padding: 16px 24px;
+    font-size: 1.15rem;
+    line-height: 1.7;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  }
+
+  @media (min-width: 1025px) {
+    padding: 18px 28px;
+    font-size: 1.25rem;
+  }
 
   .user & {
     background-color: $main100;
     color: #ffffff;
-    border-radius: 28px 28px 6px 28px;
+    border-radius: 20px 20px 4px 20px;
     font-weight: 500;
+
+    @media (min-width: 769px) {
+      border-radius: 24px 24px 6px 24px;
+    }
+
+    @media (min-width: 1025px) {
+      border-radius: 28px 28px 6px 28px;
+    }
   }
 
   .assistant & {
     background-color: white;
     color: $gray700;
-    border-radius: 28px 28px 28px 6px;
-    min-height: 56px;
+    border-radius: 20px 20px 20px 4px;
+    min-height: 44px;
     display: flex;
     align-items: center;
+
+    @media (min-width: 769px) {
+      border-radius: 24px 24px 24px 6px;
+      min-height: 50px;
+    }
+
+    @media (min-width: 1025px) {
+      border-radius: 28px 28px 28px 6px;
+      min-height: 56px;
+    }
   }
 
   .system & {
     background-color: #fef3c7;
     color: #92400e;
-    border-radius: 20px;
-    font-size: 1.05rem;
+    border-radius: 16px;
+    font-size: 0.9rem;
     text-align: center;
     font-weight: 500;
+
+    @media (min-width: 769px) {
+      border-radius: 18px;
+      font-size: 0.95rem;
+    }
+
+    @media (min-width: 1025px) {
+      border-radius: 20px;
+      font-size: 1.05rem;
+    }
   }
 }
 
@@ -489,20 +783,62 @@
 // 입력 영역
 .inputArea {
   background: white;
-  padding: 1.25rem 2rem;
+  padding: 0.75rem;
+  // Safe area 지원 (홈 인디케이터가 있는 기기)
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
   display: flex;
-  gap: 1.25rem;
+  gap: 0.5rem;
   border-top: 1px solid $gray300;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
+  align-items: center;
+
+  @media (min-width: 481px) {
+    padding: 0.85rem 1rem;
+    padding-bottom: max(0.85rem, env(safe-area-inset-bottom));
+    gap: 0.75rem;
+  }
+
+  @media (min-width: 769px) {
+    padding: 1rem 1.5rem;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    gap: 1rem;
+  }
+
+  @media (min-width: 1025px) {
+    padding: 1.25rem 2rem;
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+    gap: 1.25rem;
+  }
 
   input {
     flex: 1;
-    padding: 1.1rem 1.5rem;
-    border: 2px solid $gray300;
-    border-radius: 30px;
-    font-size: 1.2rem;
+    padding: 0.75rem 1rem;
+    border: 1.5px solid $gray300;
+    border-radius: 24px;
+    font-size: 1rem;
     color: $gray700;
     transition: all 0.2s;
+    // 터치 타겟 최소 크기
+    min-height: 44px;
+    // iOS에서 입력 필드 줌 방지
+    font-size: 16px;
+
+    @media (min-width: 481px) {
+      padding: 0.85rem 1.1rem;
+      border-radius: 26px;
+    }
+
+    @media (min-width: 769px) {
+      padding: 0.95rem 1.3rem;
+      border-radius: 28px;
+      border: 2px solid $gray300;
+    }
+
+    @media (min-width: 1025px) {
+      padding: 1.1rem 1.5rem;
+      border-radius: 30px;
+      font-size: 1.2rem;
+    }
 
     &:focus {
       outline: none;
@@ -512,21 +848,46 @@
 
     &::placeholder {
       color: $gray400;
+      font-size: inherit;
     }
   }
 
-  button {
-    padding: 0 2rem;
+  // 전송 버튼
+  > button:last-of-type {
+    padding: 0 1rem;
     background-color: $main100;
     color: white;
     border: none;
-    border-radius: 30px;
+    border-radius: 24px;
     font-weight: bold;
     cursor: pointer;
     transition: all 0.2s;
-    min-width: 90px;
-    font-size: 1.2rem;
-    box-shadow: 0 2px 8px rgba(255, 166, 0, 0.3);
+    min-width: 60px;
+    min-height: 44px;
+    font-size: 0.95rem;
+    box-shadow: 0 2px 6px rgba(255, 166, 0, 0.25);
+    flex-shrink: 0;
+
+    @media (min-width: 481px) {
+      padding: 0 1.25rem;
+      min-width: 70px;
+      border-radius: 26px;
+    }
+
+    @media (min-width: 769px) {
+      padding: 0 1.5rem;
+      min-width: 80px;
+      font-size: 1.05rem;
+      border-radius: 28px;
+      box-shadow: 0 2px 8px rgba(255, 166, 0, 0.3);
+    }
+
+    @media (min-width: 1025px) {
+      padding: 0 2rem;
+      min-width: 90px;
+      font-size: 1.2rem;
+      border-radius: 30px;
+    }
 
     &:disabled {
       background-color: $gray300;
@@ -547,107 +908,113 @@
   }
 }
 
-// 모바일 대응
-@media (max-width: 640px) {
+// =============================================================================
+// 특수 케이스 미디어 쿼리
+// =============================================================================
+
+// 가로 모드에서 헤더 컴팩트하게
+@media (max-height: 500px) and (orientation: landscape) {
   .header {
-    flex-wrap: wrap;
+    padding: 0.5rem 1rem;
     gap: 0.5rem;
-    padding: 1rem 1.25rem;
+  }
+
+  .chatWindow {
+    padding: 0.75rem;
+    gap: 0.75rem;
+
+    &::before {
+      height: 0.5rem;
+    }
+  }
+
+  .inputArea {
+    padding: 0.5rem 0.75rem;
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+
+  .emptyState {
+    gap: 1rem;
+    padding: 0.5rem;
+  }
+
+  .greetingTitle {
+    font-size: 1.1rem;
+  }
+
+  .greetingDesc {
+    font-size: 0.9rem;
+  }
+}
+
+// 초소형 디바이스 (320px 이하)
+@media (max-width: 320px) {
+  .header {
+    padding: 0.5rem 0.5rem;
+    gap: 0.35rem;
 
     h2 {
-      order: 1;
-      flex: 1;
-      font-size: 1.25rem;
-    }
-
-    .backButton {
-      order: 0;
-      font-size: 1.5rem;
-    }
-
-    .assessmentButtons {
-      order: 2;
-      width: 100%;
-      justify-content: center;
-      gap: 0.4rem;
-    }
-
-    .assessmentButton {
-      padding: 0.45rem 0.8rem;
-      font-size: 0.8rem;
-      min-width: auto;
-    }
-
-    .sessionSelector {
-      order: 3;
-    }
-
-    .childName {
-      order: 4;
-      width: 100%;
-      text-align: center;
       font-size: 1rem;
     }
   }
 
+  .assessmentButton {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.7rem;
+    min-height: 32px;
+
+    svg {
+      width: 12px;
+      height: 12px;
+    }
+  }
+
   .sessionButton {
-    padding: 0.5rem 0.9rem;
-    font-size: 0.95rem;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.7rem;
+    min-height: 32px;
   }
 
-  .sessionDropdown {
-    width: 280px;
-    right: -20px;
-  }
-
-  .sessionItem {
-    padding: 0.85rem 1rem;
-  }
-
-  .sessionPreview {
-    font-size: 0.95rem;
-  }
-
-  .chatWindow {
-    padding: 1.5rem 1rem;
-    gap: 1.5rem;
-  }
-
-  .messageRow {
-    max-width: 92%;
+  .childName {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.5rem;
   }
 
   .bubble {
-    padding: 14px 20px;
-    font-size: 1.1rem;
-  }
-
-  .greetingTitle {
-    font-size: 1.5rem;
-  }
-
-  .greetingDesc {
-    font-size: 1.15rem;
+    padding: 10px 14px;
+    font-size: 0.9rem;
   }
 
   .inputArea {
-    padding: 1rem 1.25rem;
-    gap: 1rem;
+    padding: 0.5rem;
+    gap: 0.35rem;
 
     input {
-      padding: 0.9rem 1.2rem;
-      font-size: 1.1rem;
+      padding: 0.6rem 0.8rem;
+      font-size: 16px; // iOS 줌 방지를 위해 16px 유지
     }
 
-    button {
-      padding: 0 1.5rem;
-      font-size: 1.1rem;
-      min-width: 80px;
+    > button:last-of-type {
+      padding: 0 0.75rem;
+      min-width: 50px;
+      font-size: 0.85rem;
     }
   }
+}
 
-  .retryButton {
-    font-size: 1rem;
-    padding: 0.75rem 1.5rem;
+// 터치 디바이스 최적화
+@media (hover: none) and (pointer: coarse) {
+  // 터치 타겟 크기 확보
+  .backButton,
+  .sessionButton,
+  .assessmentButton {
+    min-height: 44px;
+  }
+
+  // 호버 효과 제거 (터치에서 불필요)
+  .sessionButton:hover,
+  .assessmentButton:hover:not(:disabled),
+  .inputArea > button:last-of-type:hover:not(:disabled) {
+    transform: none;
   }
 }

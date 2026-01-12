@@ -229,6 +229,25 @@
 // 모바일 대응
 // =============================================================================
 
+// 태블릿 (768px 이하)
+@media (max-width: 768px) {
+  .voiceButton {
+    width: 48px;
+    height: 48px;
+
+    svg {
+      width: 22px;
+      height: 22px;
+    }
+  }
+
+  .statusText {
+    font-size: 0.8rem;
+    padding: 5px 10px;
+  }
+}
+
+// 대형 모바일 (640px 이하)
 @media (max-width: 640px) {
   .voiceButton {
     width: 46px;
@@ -241,7 +260,81 @@
   }
 
   .statusText {
-    font-size: 0.8rem;
-    padding: 5px 10px;
+    bottom: calc(100% + 6px);
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    border-radius: 6px;
+
+    &::after {
+      border-width: 5px;
+    }
+  }
+}
+
+// 일반 모바일 (480px 이하)
+@media (max-width: 480px) {
+  .voiceButton {
+    // 최소 터치 타겟 44px 보장
+    width: 44px;
+    height: 44px;
+
+    svg {
+      width: 18px;
+      height: 18px;
+    }
+  }
+
+  .statusText {
+    // 모바일에서 툴팁 숨김 (공간 절약)
+    display: none;
+  }
+
+  // 녹음 중 애니메이션 축소
+  .listening::before,
+  .recording::before {
+    inset: -3px;
+    border-width: 2px;
+  }
+}
+
+// 소형 모바일 (360px 이하)
+@media (max-width: 360px) {
+  .voiceButton {
+    width: 42px;
+    height: 42px;
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+}
+
+// 터치 디바이스 최적화
+@media (hover: none) and (pointer: coarse) {
+  .voiceButton {
+    // 터치 디바이스에서 호버 효과 제거
+    &:hover:not(:disabled) {
+      transform: none;
+      background: $gray200;
+    }
+
+    // 활성 상태에서만 피드백
+    &:active:not(:disabled) {
+      transform: scale(0.95);
+    }
+  }
+
+  .listening:hover:not(:disabled) {
+    background: $main100;
+  }
+
+  .recording:hover:not(:disabled) {
+    background: #ef4444;
+  }
+
+  // 터치 디바이스에서 툴팁 완전 숨김
+  .statusText {
+    display: none;
   }
 }
