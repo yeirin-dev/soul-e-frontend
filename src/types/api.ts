@@ -2,12 +2,13 @@
 // Institution Types (New simplified auth)
 // =============================================================================
 
-export type InstitutionType = 'CARE_FACILITY' | 'COMMUNITY_CENTER';
+export type InstitutionType = 'CARE_FACILITY' | 'COMMUNITY_CENTER' | 'EDUCATION_WELFARE_SCHOOL';
 
 export interface DistrictFacility {
   id: string;
   name: string;
   facilityType: InstitutionType;
+  facilityTypeDisplayName?: string;
   district: string;
   address: string;
 }
@@ -299,4 +300,22 @@ export interface AcceptGuardianConsentResponse {
 // Error Types
 export interface ApiError {
   detail: string | { loc: (string | number)[]; msg: string; type: string }[];
+}
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * 시설 타입을 한국어 표시명으로 변환
+ */
+export const InstitutionTypeDisplayName: Record<InstitutionType, string> = {
+  CARE_FACILITY: '양육시설/그룹홈',
+  COMMUNITY_CENTER: '지역아동센터',
+  EDUCATION_WELFARE_SCHOOL: '교육복지사협회',
+};
+
+export function getInstitutionTypeDisplayName(type: InstitutionType | string | undefined): string {
+  if (!type) return '시설';
+  return InstitutionTypeDisplayName[type as InstitutionType] || type;
 }

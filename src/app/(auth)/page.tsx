@@ -109,7 +109,7 @@ export default function AuthPage() {
   const districtOptions = districts.map((d) => ({ value: d, label: d }));
   const facilityOptions = facilities.map((f) => ({
     value: f.id,
-    label: `${f.name} (${f.facilityType === 'CARE_FACILITY' ? '양육시설' : '지역아동센터'})`,
+    label: `${f.name} (${f.facilityTypeDisplayName || f.facilityType})`,
   }));
 
   const isFormValid = selectedDistrict && selectedFacilityId && isPasswordValid;
