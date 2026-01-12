@@ -318,7 +318,7 @@ export default function ChildSelectPage() {
                 <section className={styles.section}>
                   <h2 className={`${styles.sectionTitle} ${styles.disabled}`}>
                     <span className={styles.dot} />
-                    이용 불가 (9-15세만 가능)
+                    이용 불가 (5-18세만 가능)
                     <span className={styles.count}>{ineligibleChildren.length}</span>
                   </h2>
                   <div className={styles.grid}>
