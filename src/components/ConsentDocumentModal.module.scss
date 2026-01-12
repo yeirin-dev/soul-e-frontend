@@ -37,11 +37,11 @@
 .mainTitle {
   font-size: 1.25rem;
   font-weight: 700;
-  color: $main500;
+  color: $main100;
   text-align: center;
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
-  border-bottom: 2px solid $main100;
+  border-bottom: 2px solid $main200;
 
   @include screen(mobile) {
     font-size: 1.1rem;
@@ -69,10 +69,10 @@
 .sectionTitle {
   font-size: 1.1rem;
   font-weight: 700;
-  color: $main500;
+  color: $main100;
   margin-bottom: 1rem;
   padding-left: 0.75rem;
-  border-left: 4px solid $main400;
+  border-left: 4px solid $main200;
 
   @include screen(mobile) {
     font-size: 1rem;
@@ -90,7 +90,7 @@
   color: $gray700;
   margin: 1.25rem 0 0.75rem 0;
   padding: 0.5rem 0.75rem;
-  background: $main50;
+  background: $main400;
   border-radius: 8px;
 
   @include screen(mobile) {
@@ -103,7 +103,7 @@
     margin-bottom: 0.75rem;
 
     strong {
-      color: $main600;
+      color: $main100;
     }
   }
 }
@@ -118,7 +118,7 @@
     color: $gray600;
 
     &::marker {
-      color: $main400;
+      color: $main200;
     }
   }
 }
@@ -127,7 +127,7 @@
   list-style-type: disc;
 
   &.contactInfo {
-    background: $gray100;
+    background: $gray200;
     padding: 1rem 1rem 1rem 2rem;
     border-radius: 12px;
     margin-top: 0.75rem;
@@ -147,8 +147,8 @@
 }
 
 .warning {
-  background: linear-gradient(135deg, $caution50, rgba($caution100, 0.3));
-  border: 1px solid $caution200;
+  background: linear-gradient(135deg, #fff8e8, rgba($main300, 0.3));
+  border: 1px solid $main200;
   border-radius: 12px;
   padding: 1rem;
   margin-top: 1rem;
@@ -161,7 +161,7 @@
   overflow-x: auto;
   margin: 1rem 0;
   border-radius: 12px;
-  border: 1px solid $gray200;
+  border: 1px solid $gray300;
 
   @include screen(mobile) {
     margin: 0.75rem -0.5rem;
@@ -183,7 +183,7 @@
     padding: 0.75rem;
     text-align: left;
     vertical-align: top;
-    border-bottom: 1px solid $gray200;
+    border-bottom: 1px solid $gray300;
 
     @include screen(mobile) {
       padding: 0.5rem;
@@ -191,8 +191,8 @@
   }
 
   th {
-    background: $main100;
-    color: $main600;
+    background: $main400;
+    color: $gray700;
     font-weight: 600;
     white-space: nowrap;
   }
@@ -244,16 +244,16 @@
   grid-template-columns: 1fr auto auto;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid $gray200;
+  border-bottom: 1px solid $gray300;
 
   &:last-child {
     border-bottom: none;
   }
 
   &.header {
-    background: $main100;
+    background: $main400;
     font-weight: 600;
-    color: $main600;
+    color: $gray700;
   }
 
   @include screen(mobile) {
@@ -281,13 +281,13 @@
 .closeButtonSection {
   margin-top: 1.5rem;
   padding-top: 1rem;
-  border-top: 1px solid $gray200;
+  border-top: 1px solid $gray300;
   display: flex;
   justify-content: center;
 }
 
 .closeBtn {
-  background: linear-gradient(135deg, $main400, $main500);
+  background: linear-gradient(135deg, $main100, $main200);
   color: white;
   border: none;
   padding: 0.875rem 3rem;
@@ -296,12 +296,12 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba($main500, 0.3);
+  box-shadow: 0 4px 12px rgba($main100, 0.3);
 
   &:hover {
-    background: linear-gradient(135deg, $main500, $main600);
+    background: linear-gradient(135deg, darken($main100, 5%), $main100);
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba($main500, 0.4);
+    box-shadow: 0 6px 16px rgba($main100, 0.4);
   }
 
   &:active {
