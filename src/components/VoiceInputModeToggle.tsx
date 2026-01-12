@@ -1,7 +1,8 @@
 /**
  * VoiceInputModeToggle Component
  *
- * 음성 입력 모드 토글 - 입력모드 / 통화모드 선택
+ * 음성 입력 모드 토글 - 채팅 / 입력 / 통화 모드 선택
+ * - 채팅모드: 텍스트만 (마이크 비활성화)
  * - 입력모드 (PTT): 버튼 눌러서 녹음 → 다시 눌러서 전송
  * - 통화모드 (VAD): 자동 발화 감지
  */
@@ -18,7 +19,21 @@ import styles from '@/styles/modules/VoiceInputModeToggle.module.scss';
 // Icons
 // =============================================================================
 
-/** 키보드/입력 아이콘 (PTT 모드) */
+/** 채팅 아이콘 (텍스트 모드) */
+const ChatModeIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  </svg>
+);
+
+/** 마이크 아이콘 (PTT 모드) */
 const InputModeIcon = () => (
   <svg
     viewBox="0 0 24 24"
@@ -78,6 +93,21 @@ export function VoiceInputModeToggle({
 
   return (
     <div className={classNames(styles.toggleContainer, className)}>
+      <button
+        type="button"
+        className={classNames(
+          styles.toggleButton,
+          styles.chatMode,
+          { [styles.active]: inputMode === 'chat' }
+        )}
+        onClick={() => handleModeChange('chat')}
+        disabled={disabled}
+        aria-pressed={inputMode === 'chat'}
+        title="채팅모드: 텍스트로 대화하기"
+      >
+        <ChatModeIcon />
+        <span>채팅</span>
+      </button>
       <button
         type="button"
         className={classNames(

@@ -310,7 +310,7 @@
 .sessionDropdown {
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
+  left: 0; // 모바일에서 왼쪽 기준으로 배치 (오버플로우 방지)
   width: min(280px, calc(100vw - 2rem));
   max-height: min(400px, 60vh);
   overflow-y: auto;
@@ -329,6 +329,8 @@
     width: 320px;
     max-height: 450px;
     border-radius: 20px;
+    left: auto;
+    right: 0; // 태블릿/데스크탑에서는 오른쪽 기준
   }
 }
 

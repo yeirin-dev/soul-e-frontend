@@ -3,6 +3,9 @@
  *
  * 음성 입력 버튼 - 상태별 시각적 피드백 제공
  *
+ * 채팅모드:
+ * - 마이크 비활성화 상태
+ *
  * 입력모드 (PTT):
  * - idle: 비활성화 상태 (마이크 아이콘) - "녹음하기"
  * - recording: 녹음 중 - "녹음 중... (누르면 전송)"
@@ -41,6 +44,8 @@ interface VoiceButtonProps {
   error: string | null;
   /** 버튼 비활성화 */
   disabled?: boolean;
+  /** TTS 재생 중 */
+  isTTSSpeaking?: boolean;
   /** 클릭 핸들러 */
   onClick: () => void;
   /** 추가 className */
@@ -120,9 +125,11 @@ export function VoiceButton({
   isLoading,
   error,
   disabled = false,
+  isTTSSpeaking = false,
   onClick,
   className,
 }: VoiceButtonProps) {
+  const isChatMode = inputMode === 'chat';
   const isPTTMode = inputMode === 'input';
 
   // 상태에 따른 아이콘 선택
@@ -135,6 +142,12 @@ export function VoiceButton({
 
   // 상태에 따른 텍스트 (모드별로 다른 표현)
   const statusText = useMemo(() => {
+    // TTS 재생 중일 때
+    if (isTTSSpeaking) return '말하는 중';
+
+    // 채팅 모드일 때 (마이크 비활성화)
+    if (isChatMode) return '채팅 모드';
+
     if (isLoading) return '준비 중...';
     if (isTranscribing) return '변환 중...';
 
@@ -150,7 +163,7 @@ export function VoiceButton({
       if (error) return error;
       return '음성 입력';
     }
-  }, [isLoading, isTranscribing, isRecording, isListening, error, isPTTMode]);
+  }, [isLoading, isTranscribing, isRecording, isListening, error, isPTTMode, isChatMode, isTTSSpeaking]);
 
   // 버튼 클래스
   const buttonClass = classNames(
@@ -161,6 +174,8 @@ export function VoiceButton({
       [styles.transcribing]: isTranscribing,
       [styles.loading]: isLoading,
       [styles.error]: !!error && !isListening && !isRecording && !isTranscribing,
+      [styles.chatMode]: isChatMode,
+      [styles.speaking]: isTTSSpeaking,
     },
     className
   );

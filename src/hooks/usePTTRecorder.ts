@@ -40,8 +40,14 @@ interface UsePTTRecorderReturn {
   stopRecording: () => void;
   /** 녹음 취소 (전송하지 않음) */
   cancelRecording: () => void;
+  /** 마이크 일시정지 (TTS 재생 중 에코 방지) */
+  pauseMic: () => void;
+  /** 마이크 재개 (TTS 재생 완료 후) */
+  resumeMic: () => void;
   /** 현재 녹음 중인지 */
   isRecording: boolean;
+  /** 마이크 일시정지 상태인지 */
+  isMicPaused: boolean;
   /** STT 처리 중인지 */
   isTranscribing: boolean;
   /** 에러 메시지 */
@@ -109,6 +115,7 @@ export function usePTTRecorder({
 
   // Local state
   const [isInitializing, setIsInitializing] = useState(false);
+  const [isMicPaused, setIsMicPaused] = useState(false);
 
   // Refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -136,6 +143,20 @@ export function usePTTRecorder({
     dispatch(setVoiceTranscribing(true));
 
     try {
+      // [DEBUG] 원본 Blob 정보
+      console.log('[STT Debug] Original blob:', {
+        size: audioBlob.size,
+        type: audioBlob.type,
+      });
+
+      // 녹음 데이터가 너무 작으면 (1KB 미만) 무시
+      if (audioBlob.size < 1000) {
+        console.warn('[STT Debug] Audio blob too small, skipping');
+        dispatch(setVoiceError('🎤 녹음이 너무 짧아요. 버튼을 조금 더 길게 누르고 말해주세요!'));
+        onErrorRef.current?.('녹음이 너무 짧습니다.');
+        return;
+      }
+
       // Convert Blob to ArrayBuffer
       const arrayBuffer = await audioBlob.arrayBuffer();
 
@@ -143,28 +164,74 @@ export function usePTTRecorder({
       const audioContext = new AudioContext();
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
+      // [DEBUG] 디코딩된 오디오 정보
+      console.log('[STT Debug] Decoded audio:', {
+        duration: audioBuffer.duration,
+        sampleRate: audioBuffer.sampleRate,
+        numberOfChannels: audioBuffer.numberOfChannels,
+        length: audioBuffer.length,
+      });
+
+      // 녹음 시간이 너무 짧으면 (0.5초 미만) 무시
+      if (audioBuffer.duration < 0.5) {
+        console.warn('[STT Debug] Audio too short:', audioBuffer.duration);
+        dispatch(setVoiceError('⏱️ 녹음이 너무 짧아요. 조금 더 길게 말해주세요!'));
+        onErrorRef.current?.('녹음이 너무 짧습니다.');
+        audioContext.close();
+        return;
+      }
+
       // Get audio samples (mono)
       const samples = audioBuffer.getChannelData(0);
+
+      // [DEBUG] 오디오 레벨 분석 (RMS 계산)
+      let sumSquares = 0;
+      let maxAbs = 0;
+      for (let i = 0; i < samples.length; i++) {
+        sumSquares += samples[i] * samples[i];
+        maxAbs = Math.max(maxAbs, Math.abs(samples[i]));
+      }
+      const rms = Math.sqrt(sumSquares / samples.length);
+      console.log('[STT Debug] Audio levels:', {
+        rms: rms.toFixed(6),
+        maxAmplitude: maxAbs.toFixed(6),
+        isSilent: rms < 0.01,
+        samplesCount: samples.length,
+      });
+
+      // 오디오가 거의 무음이면 경고
+      if (rms < 0.005) {
+        console.warn('[STT Debug] Audio is nearly silent! RMS:', rms);
+        dispatch(setVoiceError('🔇 소리가 잘 안 들려요. 마이크에 더 가까이 말해주세요!'));
+        onErrorRef.current?.('마이크 소리가 너무 작습니다.');
+        audioContext.close();
+        return;
+      }
 
       // Encode to WAV
       const wavBuffer = encodeWAV(samples, audioBuffer.sampleRate);
       const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
 
+      console.log('[STT Debug] WAV blob size:', wavBlob.size);
+
       // Call STT API
       const result = await voiceApi.transcribe(wavBlob, 'recording.wav');
+
+      console.log('[STT Debug] STT result:', result);
 
       if (result.text && result.text.trim()) {
         // 자동 전송: 콜백 호출
         onTranscriptionRef.current(result.text.trim());
       } else {
-        dispatch(setVoiceError('음성이 인식되지 않았습니다. 다시 말씀해주세요.'));
+        dispatch(setVoiceError('🤔 무슨 말인지 잘 못 들었어요. 천천히 다시 말해줄래요?'));
         onErrorRef.current?.('음성이 인식되지 않았습니다.');
       }
 
       audioContext.close();
     } catch (err) {
+      console.error('[STT Debug] Error:', err);
       const apiError = err as VoiceApiError;
-      const errorMessage = apiError.message || '음성 인식에 실패했습니다.';
+      const errorMessage = apiError.message || '😥 음성 인식에 문제가 생겼어요. 잠시 후 다시 시도해주세요!';
       dispatch(setVoiceError(errorMessage));
       onErrorRef.current?.(errorMessage);
     } finally {
@@ -189,32 +256,71 @@ export function usePTTRecorder({
       });
       streamRef.current = stream;
 
+      // [DEBUG] 마이크 트랙 정보
+      const audioTrack = stream.getAudioTracks()[0];
+      console.log('[PTT Debug] Audio track:', {
+        label: audioTrack.label,
+        enabled: audioTrack.enabled,
+        muted: audioTrack.muted,
+        readyState: audioTrack.readyState,
+        settings: audioTrack.getSettings(),
+      });
+
+      // 지원되는 mimeType 선택
+      const mimeTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/mp4',
+      ];
+      let selectedMimeType = '';
+      for (const mimeType of mimeTypes) {
+        if (MediaRecorder.isTypeSupported(mimeType)) {
+          selectedMimeType = mimeType;
+          break;
+        }
+      }
+
+      console.log('[PTT Debug] Selected mimeType:', selectedMimeType);
+
+      if (!selectedMimeType) {
+        throw new Error('🔊 이 브라우저에서는 음성 녹음을 지원하지 않아요. Chrome이나 Safari를 사용해주세요!');
+      }
+
       // Create MediaRecorder
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus',
+        mimeType: selectedMimeType,
       });
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
+        console.log('[PTT Debug] Data available:', event.data.size, 'bytes');
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
         }
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        console.log('[PTT Debug] Recording stopped, chunks:', chunksRef.current.length);
+        const totalSize = chunksRef.current.reduce((sum, chunk) => sum + chunk.size, 0);
+        console.log('[PTT Debug] Total recorded size:', totalSize, 'bytes');
+
+        const audioBlob = new Blob(chunksRef.current, { type: selectedMimeType });
         chunksRef.current = [];
         processAudio(audioBlob);
       };
 
-      mediaRecorder.start();
+      // timeslice를 사용하여 주기적으로 데이터 수집 (500ms마다)
+      mediaRecorder.start(500);
+      console.log('[PTT Debug] Recording started with mimeType:', selectedMimeType);
+
       dispatch(setVoiceRecording(true));
       dispatch(setVoiceListening(true));
       setIsInitializing(false);
     } catch (err) {
       setIsInitializing(false);
-      const errorMessage = '마이크 권한을 허용해주세요.';
+      const errorMessage = '🎙️ 마이크 사용을 허용해주세요! 브라우저 설정에서 마이크 권한을 확인해주세요.';
       dispatch(setVoiceError(errorMessage));
       onErrorRef.current?.(errorMessage);
       console.error('Failed to start recording:', err);
@@ -255,6 +361,26 @@ export function usePTTRecorder({
     dispatch(setVoiceListening(false));
   }, [dispatch]);
 
+  // Pause mic (TTS 재생 중 에코 방지용)
+  const pauseMic = useCallback(() => {
+    if (streamRef.current && !isMicPaused) {
+      streamRef.current.getAudioTracks().forEach(track => {
+        track.enabled = false;
+      });
+      setIsMicPaused(true);
+    }
+  }, [isMicPaused]);
+
+  // Resume mic (TTS 재생 완료 후)
+  const resumeMic = useCallback(() => {
+    if (streamRef.current && isMicPaused) {
+      streamRef.current.getAudioTracks().forEach(track => {
+        track.enabled = true;
+      });
+      setIsMicPaused(false);
+    }
+  }, [isMicPaused]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -274,7 +400,10 @@ export function usePTTRecorder({
     startRecording,
     stopRecording,
     cancelRecording,
+    pauseMic,
+    resumeMic,
     isRecording,
+    isMicPaused,
     isTranscribing,
     error,
     isInitializing,

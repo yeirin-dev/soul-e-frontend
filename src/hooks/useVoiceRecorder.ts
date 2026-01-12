@@ -43,8 +43,14 @@ interface UseVoiceRecorderReturn {
   startListening: () => void;
   /** 음성 모드 중지 */
   stopListening: () => void;
+  /** 일시정지 (TTS 재생 중 에코 방지) */
+  pauseListening: () => void;
+  /** 일시정지 해제 */
+  resumeListening: () => void;
   /** 현재 청취 중인지 */
   isListening: boolean;
+  /** 일시정지 상태인지 */
+  isPaused: boolean;
   /** 발화 감지되어 녹음 중인지 */
   isRecording: boolean;
   /** STT 처리 중인지 */
@@ -74,6 +80,7 @@ export function useVoiceRecorder({
 
   // Local state
   const [isVADLoading, setIsVADLoading] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
 
   // Refs
   const vadRef = useRef<MicVAD | null>(null);
@@ -92,23 +99,56 @@ export function useVoiceRecorder({
     dispatch(setVoiceTranscribing(true));
 
     try {
+      // [DEBUG] VAD 오디오 정보
+      console.log('[VAD STT Debug] Audio samples:', {
+        length: audio.length,
+        duration: audio.length / 16000, // VAD는 16kHz 사용
+      });
+
+      // [DEBUG] 오디오 레벨 분석
+      let sumSquares = 0;
+      let maxAbs = 0;
+      for (let i = 0; i < audio.length; i++) {
+        sumSquares += audio[i] * audio[i];
+        maxAbs = Math.max(maxAbs, Math.abs(audio[i]));
+      }
+      const rms = Math.sqrt(sumSquares / audio.length);
+      console.log('[VAD STT Debug] Audio levels:', {
+        rms: rms.toFixed(6),
+        maxAmplitude: maxAbs.toFixed(6),
+        isSilent: rms < 0.01,
+      });
+
+      // 오디오가 거의 무음이면 경고
+      if (rms < 0.005) {
+        console.warn('[VAD STT Debug] Audio is nearly silent! RMS:', rms);
+        dispatch(setVoiceError('🔇 소리가 잘 안 들려요. 마이크에 더 가까이 말해주세요!'));
+        onErrorRef.current?.('마이크 소리가 너무 작습니다.');
+        return;
+      }
+
       // Convert Float32Array to WAV ArrayBuffer, then to Blob
       const wavArrayBuffer = utils.encodeWAV(audio);
       const wavBlob = new Blob([wavArrayBuffer], { type: 'audio/wav' });
 
+      console.log('[VAD STT Debug] WAV blob size:', wavBlob.size);
+
       // Call STT API
       const result = await voiceApi.transcribe(wavBlob, 'recording.wav');
+
+      console.log('[VAD STT Debug] STT result:', result);
 
       if (result.text && result.text.trim()) {
         // 자동 전송: 콜백 호출
         onTranscriptionRef.current(result.text.trim());
       } else {
-        dispatch(setVoiceError('음성이 인식되지 않았습니다. 다시 말씀해주세요.'));
+        dispatch(setVoiceError('🤔 무슨 말인지 잘 못 들었어요. 천천히 다시 말해줄래요?'));
         onErrorRef.current?.('음성이 인식되지 않았습니다.');
       }
     } catch (err) {
+      console.error('[VAD STT Debug] Error:', err);
       const apiError = err as VoiceApiError;
-      const errorMessage = apiError.message || '음성 인식에 실패했습니다.';
+      const errorMessage = apiError.message || '😥 음성 인식에 문제가 생겼어요. 잠시 후 다시 시도해주세요!';
       dispatch(setVoiceError(errorMessage));
       onErrorRef.current?.(errorMessage);
     } finally {
@@ -147,7 +187,7 @@ export function useVoiceRecorder({
       return vad;
     } catch (err) {
       setIsVADLoading(false);
-      const errorMessage = '마이크 권한을 허용해주세요.';
+      const errorMessage = '🎙️ 마이크 사용을 허용해주세요! 브라우저 설정에서 마이크 권한을 확인해주세요.';
       dispatch(setVoiceError(errorMessage));
       onErrorRef.current?.(errorMessage);
       throw err;
@@ -174,7 +214,24 @@ export function useVoiceRecorder({
     }
     dispatch(setVoiceListening(false));
     dispatch(resetVoiceMode());
+    setIsPaused(false);
   }, [dispatch]);
+
+  // Pause listening (TTS 재생 중 에코 방지용)
+  const pauseListening = useCallback(async () => {
+    if (vadRef.current && isListening && !isPaused) {
+      await vadRef.current.pause();
+      setIsPaused(true);
+    }
+  }, [isListening, isPaused]);
+
+  // Resume listening (TTS 재생 완료 후)
+  const resumeListening = useCallback(async () => {
+    if (vadRef.current && isListening && isPaused) {
+      await vadRef.current.start();
+      setIsPaused(false);
+    }
+  }, [isListening, isPaused]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -189,7 +246,10 @@ export function useVoiceRecorder({
   return {
     startListening,
     stopListening,
+    pauseListening,
+    resumeListening,
     isListening,
+    isPaused,
     isRecording,
     isTranscribing,
     error,

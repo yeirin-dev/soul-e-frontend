@@ -125,9 +125,47 @@
   }
 }
 
+// 채팅 모드 (마이크 비활성화)
+.chatMode {
+  background: $gray200;
+  color: $gray400;
+  opacity: 0.6;
+
+  &:hover:not(:disabled) {
+    background: $gray200;
+    transform: none;
+  }
+}
+
+// TTS 재생 중 (소울이 말하는 중)
+.speaking {
+  background: $main300;
+  color: $main100;
+  opacity: 0.8;
+  animation: speakingPulse 1.5s ease-in-out infinite;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid $main200;
+    animation: pulseRing 1.5s infinite;
+  }
+}
+
 // =============================================================================
 // 애니메이션
 // =============================================================================
+
+@keyframes speakingPulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
 
 @keyframes pulseRing {
   0% {

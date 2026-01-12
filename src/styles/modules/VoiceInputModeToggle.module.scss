@@ -52,17 +52,24 @@
   }
 }
 
+// 채팅모드 활성화 시
+.chatMode {
+  &.active {
+    color: #2563eb; // 파란색
+  }
+}
+
 // 입력모드 활성화 시
 .inputMode {
   &.active {
-    color: #059669;
+    color: #059669; // 녹색
   }
 }
 
 // 통화모드 활성화 시
 .callMode {
   &.active {
-    color: #dc2626;
+    color: #dc2626; // 빨간색
   }
 }
 

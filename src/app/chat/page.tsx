@@ -40,6 +40,7 @@ import Tooltip from '@/components/Tooltip';
 import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
 import { usePTTRecorder } from '@/hooks/usePTTRecorder';
 import { useTTSPlayer } from '@/hooks/useTTSPlayer';
+import { VoiceErrorToast } from '@/components/VoiceErrorToast';
 
 export default function ChatPage() {
   const dispatch = useAppDispatch();
@@ -298,6 +299,8 @@ export default function ChatPage() {
   const {
     startListening: vadStartListening,
     stopListening: vadStopListening,
+    pauseListening: vadPauseListening,
+    resumeListening: vadResumeListening,
     isListening: vadIsListening,
     isRecording: vadIsRecording,
     isTranscribing: vadIsTranscribing,
@@ -312,6 +315,8 @@ export default function ChatPage() {
   const {
     startRecording: pttStartRecording,
     stopRecording: pttStopRecording,
+    pauseMic: pttPauseMic,
+    resumeMic: pttResumeMic,
     isRecording: pttIsRecording,
     isTranscribing: pttIsTranscribing,
     error: pttError,
@@ -322,6 +327,7 @@ export default function ChatPage() {
   });
 
   // 현재 모드에 따른 상태 선택
+  const isChatMode = voiceInputMode === 'chat';
   const isPTTMode = voiceInputMode === 'input';
   const voiceIsListening = isPTTMode ? pttIsRecording : vadIsListening;
   const voiceIsRecording = isPTTMode ? pttIsRecording : vadIsRecording;
@@ -345,6 +351,27 @@ export default function ChatPage() {
   useEffect(() => {
     speakRef.current = speak;
   }, [speak]);
+
+  // TTS 재생 중 마이크 일시정지 (에코 방지) - 채팅 모드에서는 스킵
+  useEffect(() => {
+    if (isChatMode) return; // 채팅 모드에서는 마이크 사용 안함
+
+    if (ttsIsPlaying) {
+      // TTS 시작 → 마이크 일시정지
+      if (isPTTMode) {
+        pttPauseMic();
+      } else {
+        vadPauseListening();
+      }
+    } else {
+      // TTS 종료 → 마이크 재개
+      if (isPTTMode) {
+        pttResumeMic();
+      } else {
+        vadResumeListening();
+      }
+    }
+  }, [ttsIsPlaying, isChatMode, isPTTMode, pttPauseMic, pttResumeMic, vadPauseListening, vadResumeListening]);
 
   // 음성 버튼 클릭 핸들러 (모드별 분기)
   const handleVoiceButtonClick = useCallback(() => {
@@ -665,21 +692,31 @@ export default function ChatPage() {
           isTranscribing={voiceIsTranscribing}
           isLoading={voiceIsLoading}
           error={voiceError}
-          disabled={isLoading}
+          disabled={isLoading || isChatMode || ttsIsPlaying}
           onClick={handleVoiceButtonClick}
+          isTTSSpeaking={ttsIsPlaying}
         />
         <input
           ref={inputRef}
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={voiceIsListening ? '말씀하세요...' : '소울이에게 말을 걸어보세요...'}
-          disabled={isLoading || voiceIsRecording || voiceIsTranscribing}
+          placeholder={
+            ttsIsPlaying
+              ? '소울이가 말하는 중이야!'
+              : voiceIsListening
+                ? '말씀하세요...'
+                : '소울이에게 말을 걸어보세요...'
+          }
+          disabled={isLoading || voiceIsRecording || voiceIsTranscribing || ttsIsPlaying}
         />
-        <button type="submit" disabled={isLoading || !input.trim() || voiceIsRecording || voiceIsTranscribing}>
+        <button type="submit" disabled={isLoading || !input.trim() || voiceIsRecording || voiceIsTranscribing || ttsIsPlaying}>
           {isLoading ? '...' : '전송'}
         </button>
       </form>
+
+      {/* 음성 인식 에러 토스트 */}
+      <VoiceErrorToast error={voiceError} />
     </div>
   );
 }

@@ -2,7 +2,10 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import { type ChatMessage, type SessionInfo } from '@/types/api';
 
 // 음성 입력 모드 타입
-export type VoiceInputModeType = 'input' | 'call';
+// 'chat': 채팅 모드 (텍스트만, 마이크 비활성화)
+// 'input': 입력 모드 (PTT - Push to Talk)
+// 'call': 통화 모드 (VAD - Voice Activity Detection)
+export type VoiceInputModeType = 'chat' | 'input' | 'call';
 
 // 음성 모드 상태 타입 (STT)
 interface VoiceModeState {
@@ -47,7 +50,7 @@ const initialState: ChatState = {
   historyLoading: false,
   voiceMode: {
     enabled: false,
-    inputMode: 'input', // 기본값: 입력 모드 (PTT)
+    inputMode: 'chat', // 기본값: 채팅 모드 (텍스트만)
     isListening: false,
     isRecording: false,
     isTranscribing: false,
