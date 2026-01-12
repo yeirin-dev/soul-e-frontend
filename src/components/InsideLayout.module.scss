@@ -22,11 +22,10 @@
   }
 
   @include screen(mobile) {
-    // 모바일: 화면 상단 중앙에 배치
-    top: 4px;
-    right: auto;
-    left: 50%;
-    transform: translateX(-50%);
+    // 모바일: 콘텐츠 흐름에 포함, 상단 중앙 배치
+    position: static;
+    align-self: center;
+    margin-bottom: 0.5rem;
     padding: 4px 10px;
     font-size: 10px;
     gap: 6px;
