@@ -21,6 +21,12 @@ import {
   resetVoiceMode,
 } from '@/lib/store/chatSlice';
 import type { RootState } from '@/lib/store';
+import {
+  acquireMicrophoneStream,
+  disableMicrophoneTracks,
+  enableMicrophoneTracks,
+  getMicrophoneState,
+} from './useMicrophoneManager';
 
 // =============================================================================
 // Types
@@ -246,24 +252,24 @@ export function usePTTRecorder({
     isCancelledRef.current = false;
 
     try {
-      // Request microphone permission
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        }
+      // 마이크 매니저를 통해 스트림 획득 (이미 있으면 재사용)
+      const stream = await acquireMicrophoneStream({
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
       });
       streamRef.current = stream;
 
       // [DEBUG] 마이크 트랙 정보
       const audioTrack = stream.getAudioTracks()[0];
-      console.log('[PTT Debug] Audio track:', {
+      const micState = getMicrophoneState();
+      console.log('[PTT Debug] Audio track (via MicManager):', {
         label: audioTrack.label,
         enabled: audioTrack.enabled,
         muted: audioTrack.muted,
         readyState: audioTrack.readyState,
         settings: audioTrack.getSettings(),
+        micManagerState: micState,
       });
 
       // 지원되는 mimeType 선택
@@ -333,11 +339,9 @@ export function usePTTRecorder({
       mediaRecorderRef.current.stop();
     }
 
-    // Stop all tracks
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
+    // 트랙을 완전히 종료하지 않고 비활성화만 함 (Android 권한 재요청 방지)
+    // streamRef는 유지하되, 마이크 매니저가 관리하는 전역 스트림은 비활성화
+    disableMicrophoneTracks();
 
     dispatch(setVoiceListening(false));
   }, [dispatch]);
@@ -350,11 +354,8 @@ export function usePTTRecorder({
       mediaRecorderRef.current.stop();
     }
 
-    // Stop all tracks
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
+    // 트랙을 완전히 종료하지 않고 비활성화만 함 (Android 권한 재요청 방지)
+    disableMicrophoneTracks();
 
     chunksRef.current = [];
     dispatch(setVoiceRecording(false));
@@ -363,20 +364,16 @@ export function usePTTRecorder({
 
   // Pause mic (TTS 재생 중 에코 방지용)
   const pauseMic = useCallback(() => {
-    if (streamRef.current && !isMicPaused) {
-      streamRef.current.getAudioTracks().forEach(track => {
-        track.enabled = false;
-      });
+    if (!isMicPaused) {
+      disableMicrophoneTracks();
       setIsMicPaused(true);
     }
   }, [isMicPaused]);
 
   // Resume mic (TTS 재생 완료 후)
   const resumeMic = useCallback(() => {
-    if (streamRef.current && isMicPaused) {
-      streamRef.current.getAudioTracks().forEach(track => {
-        track.enabled = true;
-      });
+    if (isMicPaused) {
+      enableMicrophoneTracks();
       setIsMicPaused(false);
     }
   }, [isMicPaused]);
@@ -387,9 +384,10 @@ export function usePTTRecorder({
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
         mediaRecorderRef.current.stop();
       }
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
+      // 마이크 스트림은 전역적으로 관리되므로 unmount 시 종료하지 않음
+      // 트랙만 비활성화하여 다음 사용 시 재활용 가능하게 함
+      disableMicrophoneTracks();
+
       if (audioContextRef.current) {
         audioContextRef.current.close();
       }

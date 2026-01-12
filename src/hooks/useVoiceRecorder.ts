@@ -22,6 +22,12 @@ import {
   resetVoiceMode,
 } from '@/lib/store/chatSlice';
 import type { RootState } from '@/lib/store';
+import {
+  acquireMicrophoneStream,
+  disableMicrophoneTracks,
+  enableMicrophoneTracks,
+  getMicrophoneState,
+} from './useMicrophoneManager';
 
 // =============================================================================
 // Types
@@ -158,18 +164,64 @@ export function useVoiceRecorder({
 
   // Initialize VAD (lazy - only when startListening is called)
   const initializeVAD = useCallback(async () => {
+    // 기존 VAD가 있고, 마이크 스트림이 유효하면 재사용
     if (vadRef.current) {
-      return vadRef.current;
+      const micState = getMicrophoneState();
+      if (micState.isValid) {
+        console.log('[VAD] Reusing existing VAD instance');
+        return vadRef.current;
+      } else {
+        // 스트림이 무효하면 VAD 재생성 필요
+        console.log('[VAD] Stream invalid, recreating VAD');
+        vadRef.current.destroy();
+        vadRef.current = null;
+      }
     }
 
     setIsVADLoading(true);
 
     try {
+      // 마이크 매니저를 통해 스트림 획득 (재사용)
+      const stream = await acquireMicrophoneStream({
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      });
+
+      const micState = getMicrophoneState();
+      console.log('[VAD] Creating VAD with managed stream:', micState);
+
       const vad = await MicVAD.new({
         positiveSpeechThreshold,
         minSpeechMs,
         baseAssetPath: '/vad/',
         onnxWASMBasePath: '/vad/',
+        // 마이크 매니저를 통해 스트림 획득 (내부 getUserMedia 호출 방지)
+        getStream: async () => {
+          // 이미 획득한 스트림이 있으면 재사용, 없으면 새로 획득
+          const currentState = getMicrophoneState();
+          if (currentState.isValid) {
+            enableMicrophoneTracks();
+            return stream;
+          }
+          return acquireMicrophoneStream({
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          });
+        },
+        // 스트림 일시정지/재개 함수 제공
+        pauseStream: async (s: MediaStream) => {
+          s.getAudioTracks().forEach(track => {
+            track.enabled = false;
+          });
+        },
+        resumeStream: async (s: MediaStream) => {
+          s.getAudioTracks().forEach(track => {
+            track.enabled = true;
+          });
+          return s;
+        },
         onSpeechStart: () => {
           dispatch(setVoiceRecording(true));
           dispatch(setVoiceError(null));
@@ -212,6 +264,8 @@ export function useVoiceRecorder({
     if (vadRef.current) {
       await vadRef.current.pause();
     }
+    // 마이크 트랙 비활성화 (스트림은 유지)
+    disableMicrophoneTracks();
     dispatch(setVoiceListening(false));
     dispatch(resetVoiceMode());
     setIsPaused(false);
@@ -221,6 +275,8 @@ export function useVoiceRecorder({
   const pauseListening = useCallback(async () => {
     if (vadRef.current && isListening && !isPaused) {
       await vadRef.current.pause();
+      // 마이크 트랙 비활성화
+      disableMicrophoneTracks();
       setIsPaused(true);
     }
   }, [isListening, isPaused]);
@@ -228,6 +284,8 @@ export function useVoiceRecorder({
   // Resume listening (TTS 재생 완료 후)
   const resumeListening = useCallback(async () => {
     if (vadRef.current && isListening && isPaused) {
+      // 마이크 트랙 활성화
+      enableMicrophoneTracks();
       await vadRef.current.start();
       setIsPaused(false);
     }
@@ -240,6 +298,9 @@ export function useVoiceRecorder({
         vadRef.current.destroy();
         vadRef.current = null;
       }
+      // 마이크 스트림은 전역적으로 관리되므로 unmount 시 종료하지 않음
+      // 트랙만 비활성화하여 다음 사용 시 재활용 가능하게 함
+      disableMicrophoneTracks();
     };
   }, []);
 
