@@ -563,6 +563,13 @@ export const guardianConsentApi = {
 export { assessmentApi } from './assessment';
 
 // =============================================================================
+// Teacher Assessment API (Soul Backend - Port 8000, yeirin_token 인증)
+// 교사평정용 검사 시스템 (KPRC_CO_TG)
+// =============================================================================
+
+export { teacherAssessmentApi } from './teacher-assessment';
+
+// =============================================================================
 // Settings API (Yeirin Backend - Port 3000, 인증 불필요)
 // =============================================================================
 
