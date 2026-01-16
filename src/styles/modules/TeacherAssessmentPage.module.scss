@@ -1128,3 +1128,36 @@
   gap: 12px;
   padding: 0 24px 24px;
 }
+
+// ==========================================================================
+// 로딩 컨테이너 (세션 복구 중)
+// ==========================================================================
+
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 16px;
+
+  p {
+    font-size: 14px;
+    color: $text-secondary;
+  }
+}
+
+.loadingSpinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid $gray200;
+  border-top-color: $main100;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

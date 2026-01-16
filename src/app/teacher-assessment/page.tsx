@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { InputField } from '@/components/InputField';
 import { Select } from '@/components/Select';
-import { authApi, teacherAssessmentApi } from '@/lib/api';
+import { authApi, teacherAssessmentApi, TokenManager } from '@/lib/api';
 import type {
   TeacherInfo,
   TeacherChildInfo,
@@ -82,6 +82,9 @@ export default function TeacherAssessmentPage() {
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedAnswersRef = useRef<string>('');
 
+  // 세션 복구 중 로딩 상태
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
+
   // ==========================================================================
   // 구/군 목록 로드
   // ==========================================================================
@@ -98,6 +101,41 @@ export default function TeacherAssessmentPage() {
       }
     };
     fetchDistricts();
+  }, []);
+
+  // ==========================================================================
+  // 기존 토큰으로 세션 복구 (새로고침 시 로그인 유지)
+  // ==========================================================================
+
+  useEffect(() => {
+    const restoreSession = async () => {
+      // 유효한 yeirin 토큰이 있는지 확인
+      if (!TokenManager.isYeirinTokenValid()) {
+        setIsRestoringSession(false);
+        return;
+      }
+
+      try {
+        // 교사 정보 조회 시도
+        const info = await teacherAssessmentApi.getTeacherInfo();
+        setTeacherInfo(info);
+
+        // 아동 목록 조회
+        const childrenResponse = await teacherAssessmentApi.getChildren();
+        setChildren(childrenResponse.children);
+
+        // 검사도구 선택 단계로 이동
+        setPhase('assessment-select');
+      } catch (err) {
+        // 토큰이 유효하지 않거나 API 오류 시 로그인 화면 유지
+        console.error('세션 복구 실패:', err);
+        TokenManager.removeYeirinToken();
+      } finally {
+        setIsRestoringSession(false);
+      }
+    };
+
+    restoreSession();
   }, []);
 
   // ==========================================================================
@@ -1031,6 +1069,21 @@ export default function TeacherAssessmentPage() {
       </div>
     );
   };
+
+  // 세션 복구 중 로딩 화면
+  if (isRestoringSession) {
+    return (
+      <div className={styles.container}>
+        {renderHeader()}
+        <main className={styles.main}>
+          <div className={styles.loadingContainer}>
+            <div className={styles.loadingSpinner} />
+            <p>로그인 정보 확인 중...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>
