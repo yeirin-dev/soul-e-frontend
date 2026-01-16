@@ -198,6 +198,16 @@ export default function TeacherAssessmentPage() {
     return child.grade ?? calculateGradeFromAge(child.age);
   };
 
+  /**
+   * 성별 변환 (MALE/FEMALE → M/F)
+   */
+  const convertGender = (gender: string): 'M' | 'F' => {
+    if (gender === 'MALE' || gender === 'M' || gender === '남자') return 'M';
+    if (gender === 'FEMALE' || gender === 'F' || gender === '여자') return 'F';
+    // 기본값
+    return gender === 'M' ? 'M' : 'F';
+  };
+
   // ==========================================================================
   // 아동 선택 및 검사 시작
   // ==========================================================================
@@ -307,7 +317,7 @@ export default function TeacherAssessmentPage() {
         teacher_id: teacherInfo.institution_id,
         child_id: selectedChild.id,
         child_name: selectedChild.name,
-        gender: selectedChild.gender as 'M' | 'F',
+        gender: convertGender(selectedChild.gender),
         birth_date: selectedChild.birth_date,
         school_grade: getChildGrade(selectedChild),
       });
