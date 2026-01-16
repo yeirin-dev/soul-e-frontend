@@ -566,25 +566,33 @@
     align-items: center;
     justify-content: center;
     gap: 10px;
-    color: $main100;
+    color: white;
     font-weight: 600;
+    font-size: 16px;
     text-decoration: none;
-    padding: 14px 28px;
-    background: $main400;
-    border-radius: 12px;
+    padding: 16px 32px;
+    background: linear-gradient(135deg, $main100, $main200);
+    border-radius: 16px;
     transition: all 0.2s ease;
     white-space: nowrap;
-    min-width: 180px;
+    min-width: 200px;
+    box-shadow: 0 4px 16px rgba($main100, 0.3);
 
     svg {
-      width: 20px;
-      height: 20px;
+      width: 22px;
+      height: 22px;
       flex-shrink: 0;
     }
 
     &:hover {
-      background: $main300;
-      transform: translateY(-1px);
+      background: linear-gradient(135deg, $main200, $main100);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba($main100, 0.4);
+    }
+
+    &:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 10px rgba($main100, 0.3);
     }
   }
 
