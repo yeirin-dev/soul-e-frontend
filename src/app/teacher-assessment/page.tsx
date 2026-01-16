@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { InputField } from '@/components/InputField';
 import { Select } from '@/components/Select';
-import { teacherAssessmentApi } from '@/lib/api/teacher-assessment';
+import { authApi, teacherAssessmentApi } from '@/lib/api';
 import type {
   TeacherInfo,
   TeacherChildInfo,
@@ -15,6 +15,7 @@ import type {
   AssessmentPhase,
   KPRC_TG_CHOICES,
 } from '@/types/teacher-assessment';
+import type { DistrictFacility } from '@/types/api';
 import styles from '@/styles/modules/TeacherAssessmentPage.module.scss';
 
 // 선택지 상수
@@ -30,10 +31,21 @@ export default function TeacherAssessmentPage() {
   // 상태 관리
   // ==========================================================================
 
-  // 인증 상태
+  // 인증 상태 - 구/군 선택
   const [phase, setPhase] = useState<AssessmentPhase>('auth');
   const [teacherInfo, setTeacherInfo] = useState<TeacherInfo | null>(null);
-  const [token, setToken] = useState('');
+  const [districts, setDistricts] = useState<string[]>([]);
+  const [selectedDistrict, setSelectedDistrict] = useState('');
+  const [districtsLoading, setDistrictsLoading] = useState(true);
+
+  // 인증 상태 - 시설 선택
+  const [facilities, setFacilities] = useState<DistrictFacility[]>([]);
+  const [selectedFacilityId, setSelectedFacilityId] = useState('');
+  const [facilitiesLoading, setFacilitiesLoading] = useState(false);
+
+  // 인증 상태 - 비밀번호
+  const [password, setPassword] = useState('');
+  const [isPasswordValid, setIsPasswordValid] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
 
@@ -58,35 +70,71 @@ export default function TeacherAssessmentPage() {
   const lastSavedAnswersRef = useRef<string>('');
 
   // ==========================================================================
-  // URL 파라미터에서 토큰 확인
+  // 구/군 목록 로드
   // ==========================================================================
 
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const tokenFromUrl = urlParams.get('token');
-    if (tokenFromUrl) {
-      setToken(tokenFromUrl);
-      handleAuth(tokenFromUrl);
-    }
+    const fetchDistricts = async () => {
+      try {
+        const data = await authApi.getDistricts();
+        setDistricts(data);
+      } catch (err) {
+        console.error('구/군 목록 로드 실패:', err);
+      } finally {
+        setDistrictsLoading(false);
+      }
+    };
+    fetchDistricts();
   }, []);
+
+  // ==========================================================================
+  // 구/군 선택 시 시설 목록 로드
+  // ==========================================================================
+
+  useEffect(() => {
+    if (!selectedDistrict) {
+      setFacilities([]);
+      setSelectedFacilityId('');
+      return;
+    }
+
+    const fetchFacilities = async () => {
+      setFacilitiesLoading(true);
+      setSelectedFacilityId('');
+      try {
+        const data = await authApi.getFacilities(selectedDistrict);
+        setFacilities(data);
+      } catch (err) {
+        console.error('시설 목록 로드 실패:', err);
+        setFacilities([]);
+      } finally {
+        setFacilitiesLoading(false);
+      }
+    };
+    fetchFacilities();
+  }, [selectedDistrict]);
+
+  // 선택된 시설 정보
+  const selectedFacility = facilities.find((f) => f.id === selectedFacilityId);
 
   // ==========================================================================
   // 인증 처리
   // ==========================================================================
 
-  const handleAuth = async (authToken?: string) => {
-    const tokenToUse = authToken || token;
-    if (!tokenToUse.trim()) {
-      setAuthError('토큰을 입력해주세요.');
-      return;
-    }
+  const handleAuth = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!selectedFacilityId || !selectedFacility || !isPasswordValid || authLoading) return;
 
     setAuthLoading(true);
     setAuthError('');
 
     try {
-      // 토큰을 로컬스토리지에 저장 (API 클라이언트에서 사용)
-      localStorage.setItem('yeirin_token', tokenToUse);
+      // 시설 기반 로그인 (토큰 자동 저장됨)
+      await authApi.institutionLogin({
+        facilityId: selectedFacilityId,
+        facilityType: selectedFacility.facilityType,
+        password,
+      });
 
       // 교사 정보 조회
       const info = await teacherAssessmentApi.getTeacherInfo();
@@ -99,8 +147,7 @@ export default function TeacherAssessmentPage() {
       setPhase('children');
     } catch (err: any) {
       console.error('인증 실패:', err);
-      localStorage.removeItem('yeirin_token');
-      setAuthError(err.response?.data?.detail || '인증에 실패했습니다. 토큰을 확인해주세요.');
+      setAuthError(err.response?.data?.message || '로그인에 실패했습니다. 정보를 확인해주세요.');
     } finally {
       setAuthLoading(false);
     }
@@ -331,41 +378,67 @@ export default function TeacherAssessmentPage() {
     </header>
   );
 
-  const renderAuthSection = () => (
-    <section className={styles.authSection}>
-      <div className={styles.authCard}>
-        <h1>교사 평정용 검사</h1>
-        <p className={styles.subtitle}>
-          예이린 시스템에서 발급받은 토큰으로 로그인해주세요.
-        </p>
-        <form
-          className={styles.formGroup}
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleAuth();
-          }}
-        >
-          <InputField
-            id="token"
-            type="password"
-            placeholder="토큰을 입력해주세요"
-            labelContent="인증 토큰"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-          />
-        </form>
-        {authError && <p className={styles.errorMessage}>{authError}</p>}
-        <button
-          type="button"
-          className={styles.primaryButton}
-          onClick={() => handleAuth()}
-          disabled={authLoading || !token.trim()}
-        >
-          {authLoading ? '인증 중...' : '로그인'}
-        </button>
-      </div>
-    </section>
-  );
+  const renderAuthSection = () => {
+    const districtOptions = districts.map((d) => ({ value: d, label: d }));
+    const facilityOptions = facilities.map((f) => ({
+      value: f.id,
+      label: `${f.name} (${f.facilityTypeDisplayName || f.facilityType})`,
+    }));
+    const isFormValid = selectedDistrict && selectedFacilityId && isPasswordValid;
+
+    return (
+      <section className={styles.authSection}>
+        <div className={styles.authCard}>
+          <h1>교사 평정용 검사</h1>
+          <p className={styles.subtitle}>
+            소속 기관을 선택하고 비밀번호를 입력해주세요.
+          </p>
+          <form className={styles.formGroup} onSubmit={handleAuth}>
+            <Select
+              id="district"
+              placeholder="구/군을 선택해주세요"
+              labelContent="구/군"
+              value={selectedDistrict}
+              options={districtOptions}
+              loading={districtsLoading}
+              onChange={setSelectedDistrict}
+            />
+
+            <Select
+              id="facility"
+              placeholder="시설을 선택해주세요"
+              labelContent="시설"
+              value={selectedFacilityId}
+              options={facilityOptions}
+              disabled={!selectedDistrict}
+              loading={facilitiesLoading}
+              onChange={setSelectedFacilityId}
+            />
+
+            <InputField
+              id="password"
+              type="password"
+              placeholder="비밀번호를 입력해주세요"
+              labelContent="비밀번호"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onValidityChange={setIsPasswordValid}
+              minLength={4}
+              errMsg={authError}
+            />
+          </form>
+          <button
+            type="button"
+            className={styles.primaryButton}
+            onClick={() => handleAuth()}
+            disabled={authLoading || !isFormValid}
+          >
+            {authLoading ? '로그인 중...' : '로그인'}
+          </button>
+        </div>
+      </section>
+    );
+  };
 
   const renderChildrenSection = () => {
     const eligibleChildren = children.filter((c) => c.is_eligible_for_kprc_tg);
