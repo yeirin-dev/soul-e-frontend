@@ -352,7 +352,7 @@ export default function TeacherAssessmentPage() {
 
       // 검사 세션 시작 (학년은 자동 계산)
       const sessionData = await teacherAssessmentApi.startAssessment({
-        teacher_id: teacherInfo.institution_id,
+        teacher_id: teacherInfo.facility_id,
         child_id: selectedChild.id,
         child_name: selectedChild.name,
         gender: convertGender(selectedChild.gender),
@@ -548,7 +548,7 @@ export default function TeacherAssessmentPage() {
       </div>
       {teacherInfo && (
         <div className={styles.institutionInfo}>
-          <span>{teacherInfo.institution_name}</span>
+          <span>{teacherInfo.facility_name}</span>
         </div>
       )}
     </header>

@@ -127,11 +127,15 @@ export type Gender = 'M' | 'F';
 // =============================================================================
 
 export interface TeacherInfo {
-  institution_id: string;
-  institution_name: string;
-  institution_type: string;
-  institution_type_display: string;
+  // Backend returns facility_* fields from /teacher-assessment/auth/me
+  facility_id: string;
+  facility_type: string;
+  facility_name: string;
   district: string | null;
+  // Legacy fields (optional)
+  user_id?: string | null;
+  email?: string | null;
+  real_name?: string | null;
 }
 
 // =============================================================================
