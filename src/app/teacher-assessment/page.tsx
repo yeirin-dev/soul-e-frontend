@@ -13,7 +13,12 @@ import type {
   QuestionInfo,
   AssessmentResult,
   AssessmentPhase,
-  KPRC_TG_CHOICES,
+  AssessmentTool,
+} from '@/types/teacher-assessment';
+import {
+  ASSESSMENT_TOOLS,
+  calculateGradeFromAge,
+  isEligibleForAssessment,
 } from '@/types/teacher-assessment';
 import type { DistrictFacility } from '@/types/api';
 import styles from '@/styles/modules/TeacherAssessmentPage.module.scss';
@@ -48,6 +53,9 @@ export default function TeacherAssessmentPage() {
   const [isPasswordValid, setIsPasswordValid] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+
+  // 검사도구 선택
+  const [selectedAssessmentTool, setSelectedAssessmentTool] = useState<AssessmentTool | null>(null);
 
   // 아동 목록
   const [children, setChildren] = useState<TeacherChildInfo[]>([]);
@@ -144,7 +152,8 @@ export default function TeacherAssessmentPage() {
       const childrenResponse = await teacherAssessmentApi.getChildren();
       setChildren(childrenResponse.children);
 
-      setPhase('children');
+      // 검사도구 선택 단계로 이동
+      setPhase('assessment-select');
     } catch (err: any) {
       console.error('인증 실패:', err);
       setAuthError(err.response?.data?.message || '로그인에 실패했습니다. 정보를 확인해주세요.');
@@ -154,11 +163,42 @@ export default function TeacherAssessmentPage() {
   };
 
   // ==========================================================================
+  // 검사도구 선택
+  // ==========================================================================
+
+  const handleSelectAssessmentTool = (tool: AssessmentTool) => {
+    setSelectedAssessmentTool(tool);
+    setSelectedChild(null);
+    setPhase('children');
+  };
+
+  // ==========================================================================
+  // 아동의 검사 대상 여부 확인 (학년 자동 계산)
+  // ==========================================================================
+
+  const isChildEligible = useCallback(
+    (child: TeacherChildInfo): boolean => {
+      if (!selectedAssessmentTool) return false;
+      // 학년이 없으면 나이로 자동 계산
+      const grade = child.grade ?? calculateGradeFromAge(child.age);
+      return grade >= selectedAssessmentTool.minGrade && grade <= selectedAssessmentTool.maxGrade;
+    },
+    [selectedAssessmentTool]
+  );
+
+  /**
+   * 아동의 학년 (없으면 나이 기준 자동 계산)
+   */
+  const getChildGrade = (child: TeacherChildInfo): number => {
+    return child.grade ?? calculateGradeFromAge(child.age);
+  };
+
+  // ==========================================================================
   // 아동 선택 및 검사 시작
   // ==========================================================================
 
   const handleChildSelect = (child: TeacherChildInfo) => {
-    if (!child.is_eligible_for_kprc_tg) return;
+    if (!isChildEligible(child)) return;
     setSelectedChild(child);
   };
 
@@ -177,14 +217,14 @@ export default function TeacherAssessmentPage() {
       setSections(sectionsData);
       setQuestions(questionsData);
 
-      // 검사 세션 시작
+      // 검사 세션 시작 (학년은 자동 계산)
       const sessionData = await teacherAssessmentApi.startAssessment({
         teacher_id: teacherInfo.institution_id,
         child_id: selectedChild.id,
         child_name: selectedChild.name,
         gender: selectedChild.gender as 'M' | 'F',
         birth_date: selectedChild.birth_date,
-        school_grade: selectedChild.grade || 1,
+        school_grade: getChildGrade(selectedChild),
       });
 
       setSession(sessionData);
@@ -331,7 +371,19 @@ export default function TeacherAssessmentPage() {
     setResult(null);
     setCurrentSection(1);
     setError(null);
+    // 검사도구 선택 단계로 돌아감 (같은 검사도구로 다른 아동 검사 가능)
     setPhase('children');
+  };
+
+  const handleChangeAssessmentTool = () => {
+    setSelectedChild(null);
+    setSelectedAssessmentTool(null);
+    setSession(null);
+    setAnswers({});
+    setResult(null);
+    setCurrentSection(1);
+    setError(null);
+    setPhase('assessment-select');
   };
 
   // ==========================================================================
@@ -440,48 +492,104 @@ export default function TeacherAssessmentPage() {
     );
   };
 
+  const renderAssessmentSelectSection = () => (
+    <section className={styles.assessmentSelectSection}>
+      <h2 className={styles.sectionTitle}>검사도구 선택</h2>
+      <p className={styles.sectionSubtitle}>
+        진행할 검사도구를 선택해주세요.
+      </p>
+
+      <div className={styles.assessmentToolList}>
+        {ASSESSMENT_TOOLS.map((tool) => {
+          // 해당 검사 대상 아동 수 계산
+          const eligibleCount = children.filter((c) => {
+            const grade = getChildGrade(c);
+            return grade >= tool.minGrade && grade <= tool.maxGrade;
+          }).length;
+
+          return (
+            <div
+              key={tool.code}
+              className={`${styles.assessmentToolCard} ${eligibleCount === 0 ? styles.noEligible : ''}`}
+              onClick={() => eligibleCount > 0 && handleSelectAssessmentTool(tool)}
+            >
+              <div className={styles.toolInfo}>
+                <h3 className={styles.toolName}>{tool.name}</h3>
+                <p className={styles.toolDescription}>{tool.description}</p>
+                <div className={styles.toolMeta}>
+                  <span>대상: {tool.minGrade}~{tool.maxGrade}학년 ({tool.minAge}~{tool.maxAge}세)</span>
+                  <span>문항: {tool.questionCount}개</span>
+                </div>
+              </div>
+              <div className={styles.toolEligible}>
+                <span className={eligibleCount > 0 ? styles.hasEligible : ''}>
+                  대상 아동 {eligibleCount}명
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+
   const renderChildrenSection = () => {
-    const eligibleChildren = children.filter((c) => c.is_eligible_for_kprc_tg);
+    if (!selectedAssessmentTool) return null;
+
+    // 선택된 검사도구의 대상 아동만 필터링
+    const eligibleChildren = children.filter(isChildEligible);
 
     return (
       <section className={styles.childrenSection}>
+        <div className={styles.selectedToolInfo}>
+          <h3>{selectedAssessmentTool.shortName}</h3>
+          <button
+            type="button"
+            className={styles.changeToolButton}
+            onClick={handleChangeAssessmentTool}
+          >
+            검사도구 변경
+          </button>
+        </div>
+
         <h2 className={styles.sectionTitle}>아동 선택</h2>
         <p className={styles.sectionSubtitle}>
-          검사를 진행할 아동을 선택해주세요. (1-3학년 대상)
+          검사를 진행할 아동을 선택해주세요. ({selectedAssessmentTool.minGrade}~{selectedAssessmentTool.maxGrade}학년 대상)
         </p>
 
-        {children.length === 0 ? (
+        {eligibleChildren.length === 0 ? (
           <div className={styles.emptyState}>
-            <p>등록된 아동이 없습니다.</p>
-            <p>예이린 시스템에서 아동을 먼저 등록해주세요.</p>
+            <p>검사 대상 아동이 없습니다.</p>
+            <p>
+              {selectedAssessmentTool.minGrade}~{selectedAssessmentTool.maxGrade}학년
+              ({selectedAssessmentTool.minAge}~{selectedAssessmentTool.maxAge}세) 아동만 검사 가능합니다.
+            </p>
           </div>
         ) : (
           <>
             <div className={styles.childrenList}>
-              {children.map((child) => (
-                <div
-                  key={child.id}
-                  className={`${styles.childCard} ${
-                    selectedChild?.id === child.id ? styles.selected : ''
-                  } ${!child.is_eligible_for_kprc_tg ? styles.disabled : ''}`}
-                  onClick={() => handleChildSelect(child)}
-                >
-                  <div className={styles.childInfo}>
-                    <span className={styles.childName}>{child.name}</span>
-                    <span className={styles.childDetails}>
-                      {child.age}세 · {child.gender === 'M' ? '남' : '여'} ·{' '}
-                      {child.grade ? `${child.grade}학년` : '학년 미지정'}
+              {eligibleChildren.map((child) => {
+                const grade = getChildGrade(child);
+                return (
+                  <div
+                    key={child.id}
+                    className={`${styles.childCard} ${
+                      selectedChild?.id === child.id ? styles.selected : ''
+                    }`}
+                    onClick={() => handleChildSelect(child)}
+                  >
+                    <div className={styles.childInfo}>
+                      <span className={styles.childName}>{child.name}</span>
+                      <span className={styles.childDetails}>
+                        {child.age}세 · {child.gender === 'M' ? '남' : '여'} · {grade}학년
+                      </span>
+                    </div>
+                    <span className={`${styles.childStatus} ${styles.eligible}`}>
+                      검사 가능
                     </span>
                   </div>
-                  <span
-                    className={`${styles.childStatus} ${
-                      child.is_eligible_for_kprc_tg ? styles.eligible : ''
-                    }`}
-                  >
-                    {child.is_eligible_for_kprc_tg ? '검사 가능' : '대상 외'}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className={styles.actionButton}>
@@ -503,7 +611,7 @@ export default function TeacherAssessmentPage() {
   const renderIntroSection = () => (
     <section className={styles.introSection}>
       <div className={styles.introCard}>
-        <h2>KPRC 초등 저학년 교사평정용 검사</h2>
+        <h2>{selectedAssessmentTool?.name || '교사평정용 검사'}</h2>
 
         {selectedChild && (
           <div className={styles.childSummary}>
@@ -512,7 +620,7 @@ export default function TeacherAssessmentPage() {
               <h3>{selectedChild.name}</h3>
               <p>
                 {selectedChild.age}세 · {selectedChild.gender === 'M' ? '남' : '여'} ·{' '}
-                {selectedChild.grade}학년
+                {getChildGrade(selectedChild)}학년
               </p>
             </div>
           </div>
@@ -735,6 +843,7 @@ export default function TeacherAssessmentPage() {
       {renderHeader()}
       <main className={styles.main}>
         {phase === 'auth' && renderAuthSection()}
+        {phase === 'assessment-select' && renderAssessmentSelectSection()}
         {phase === 'children' && renderChildrenSection()}
         {phase === 'intro' && renderIntroSection()}
         {phase === 'testing' && renderTestingSection()}

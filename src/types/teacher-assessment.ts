@@ -4,7 +4,57 @@
  */
 
 // =============================================================================
-// 검사 유형 상수
+// 검사 도구 목록 (확장 가능)
+// =============================================================================
+
+export interface AssessmentTool {
+  code: string;
+  name: string;
+  shortName: string;
+  description: string;
+  minGrade: number;
+  maxGrade: number;
+  minAge: number;
+  maxAge: number;
+  questionCount: number;
+  sectionCount: number;
+}
+
+/**
+ * 검사도구 목록
+ * - 한국 학년 기준: 8세 = 1학년, 13세 = 6학년
+ * - 학년 = 나이 - 7
+ */
+export const ASSESSMENT_TOOLS: AssessmentTool[] = [
+  {
+    code: 'KPRC_CO_TG',
+    name: 'KPRC 한국 아동·청소년 인성평정척도 - 교사평정용 - 표준형',
+    shortName: 'KPRC 교사평정용',
+    description: '초등학교 1~4학년 아동의 인성 및 적응을 평가하는 교사평정 검사입니다.',
+    minGrade: 1,
+    maxGrade: 4,
+    minAge: 8,
+    maxAge: 11,
+    questionCount: 152,
+    sectionCount: 8,
+  },
+  // 향후 추가될 검사도구
+  // {
+  //   code: 'KPRC_CO_TG_HIGH',
+  //   name: 'KPRC 한국 아동·청소년 인성평정척도 - 교사평정용 - 고학년',
+  //   shortName: 'KPRC 교사평정용 (고학년)',
+  //   description: '초등학교 5~6학년 아동의 인성 및 적응을 평가하는 교사평정 검사입니다.',
+  //   minGrade: 5,
+  //   maxGrade: 6,
+  //   minAge: 12,
+  //   maxAge: 13,
+  //   questionCount: 160,
+  //   sectionCount: 8,
+  // },
+];
+
+// =============================================================================
+// 검사 유형 상수 (레거시 호환)
 // =============================================================================
 
 export const TEACHER_ASSESSMENT_TYPES = {
@@ -13,6 +63,51 @@ export const TEACHER_ASSESSMENT_TYPES = {
 
 export type TeacherAssessmentTypeKey = keyof typeof TEACHER_ASSESSMENT_TYPES;
 export type TeacherAssessmentTypeValue = (typeof TEACHER_ASSESSMENT_TYPES)[TeacherAssessmentTypeKey];
+
+// =============================================================================
+// 학년 계산 유틸리티
+// =============================================================================
+
+/**
+ * 나이로 학년 계산 (한국 기준: 8세 = 1학년)
+ */
+export function calculateGradeFromAge(age: number): number {
+  const grade = age - 7;
+  if (grade < 1) return 0; // 미취학
+  if (grade > 6) return 7; // 중학생 이상
+  return grade;
+}
+
+/**
+ * 생년월일로 만 나이 계산
+ */
+export function calculateAge(birthDate: string): number {
+  const today = new Date();
+  const birth = new Date(birthDate);
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+}
+
+/**
+ * 아동이 특정 검사도구의 대상인지 확인
+ */
+export function isEligibleForAssessment(
+  childAge: number,
+  tool: AssessmentTool
+): boolean {
+  return childAge >= tool.minAge && childAge <= tool.maxAge;
+}
+
+/**
+ * 검사도구 코드로 검사도구 정보 조회
+ */
+export function getAssessmentToolByCode(code: string): AssessmentTool | undefined {
+  return ASSESSMENT_TOOLS.find((tool) => tool.code === code);
+}
 
 // =============================================================================
 // 기본 타입
@@ -245,13 +340,14 @@ export interface TeacherAssessmentState {
 // =============================================================================
 
 export type AssessmentPhase =
-  | 'auth'        // 인증 확인 중
-  | 'children'    // 아동 선택
-  | 'intro'       // 검사 안내
-  | 'testing'     // 검사 진행
-  | 'submitting'  // 제출 중
-  | 'result'      // 결과 표시
-  | 'error';      // 에러 상태
+  | 'auth'              // 로그인
+  | 'assessment-select' // 검사도구 선택
+  | 'children'          // 아동 선택
+  | 'intro'             // 검사 안내
+  | 'testing'           // 검사 진행
+  | 'submitting'        // 제출 중
+  | 'result'            // 결과 표시
+  | 'error';            // 에러 상태
 
 // =============================================================================
 // 선택지 상수
