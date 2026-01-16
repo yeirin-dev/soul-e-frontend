@@ -73,6 +73,11 @@ export default function TeacherAssessmentPage() {
   const [result, setResult] = useState<AssessmentResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // 세션 재개 관련
+  const [existingSessions, setExistingSessions] = useState<AssessmentSession[]>([]);
+  const [showResumeModal, setShowResumeModal] = useState(false);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+
   // Auto-save
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedAnswersRef = useRef<string>('');
@@ -197,9 +202,89 @@ export default function TeacherAssessmentPage() {
   // 아동 선택 및 검사 시작
   // ==========================================================================
 
-  const handleChildSelect = (child: TeacherChildInfo) => {
+  const handleChildSelect = async (child: TeacherChildInfo) => {
     if (!isChildEligible(child)) return;
     setSelectedChild(child);
+
+    // 기존 미완료 세션 확인
+    setSessionsLoading(true);
+    try {
+      const sessions = await teacherAssessmentApi.getSessionsByChild(child.id);
+      // 미완료 세션만 필터링 (CREATED 또는 IN_PROGRESS)
+      const incompleteSessions = sessions.filter(
+        (s) => s.status === 'CREATED' || s.status === 'IN_PROGRESS'
+      );
+
+      if (incompleteSessions.length > 0) {
+        setExistingSessions(incompleteSessions);
+        setShowResumeModal(true);
+      }
+    } catch (err) {
+      console.error('세션 이력 조회 실패:', err);
+      // 실패해도 진행 가능
+    } finally {
+      setSessionsLoading(false);
+    }
+  };
+
+  /**
+   * 기존 세션 재개
+   */
+  const handleResumeSession = async (sessionToResume: AssessmentSession) => {
+    setShowResumeModal(false);
+    setChildrenLoading(true);
+    setError(null);
+
+    try {
+      // 섹션 및 문항 정보 로드
+      const [sectionsData, questionsData] = await Promise.all([
+        teacherAssessmentApi.getSections(),
+        teacherAssessmentApi.getAllQuestions(),
+      ]);
+      setSections(sectionsData);
+      setQuestions(questionsData);
+
+      // 기존 세션 설정
+      setSession(sessionToResume);
+
+      // 저장된 답변 복원
+      if (sessionToResume.answered_count > 0) {
+        try {
+          const savedAnswers = await teacherAssessmentApi.getSessionAnswers(sessionToResume.session_id);
+          setAnswers(savedAnswers.answers);
+
+          // 마지막으로 응답한 섹션으로 이동
+          if (savedAnswers.last_answered_question) {
+            const lastSection = sectionsData.find(
+              (s) =>
+                savedAnswers.last_answered_question! >= s.start_question &&
+                savedAnswers.last_answered_question! <= s.end_question
+            );
+            if (lastSection) {
+              setCurrentSection(lastSection.section_number);
+            }
+          }
+        } catch {
+          // 답변 복원 실패해도 진행
+        }
+      }
+
+      setPhase('intro');
+    } catch (err: any) {
+      console.error('세션 재개 실패:', err);
+      setError(err.response?.data?.detail || '검사를 재개하는데 실패했습니다.');
+    } finally {
+      setChildrenLoading(false);
+    }
+  };
+
+  /**
+   * 새 검사 시작 (모달에서 '새로 시작' 선택 시)
+   */
+  const handleStartNewAssessment = () => {
+    setShowResumeModal(false);
+    setExistingSessions([]);
+    handleStartAssessment();
   };
 
   const handleStartAssessment = async () => {
@@ -228,16 +313,7 @@ export default function TeacherAssessmentPage() {
       });
 
       setSession(sessionData);
-
-      // 기존 답변이 있으면 복원
-      if (sessionData.answered_count > 0) {
-        try {
-          const savedAnswers = await teacherAssessmentApi.getSessionAnswers(sessionData.session_id);
-          setAnswers(savedAnswers.answers);
-        } catch {
-          // 답변 복원 실패해도 진행
-        }
-      }
+      setAnswers({}); // 새 세션이므로 답변 초기화
 
       setPhase('intro');
     } catch (err: any) {
@@ -570,13 +646,14 @@ export default function TeacherAssessmentPage() {
             <div className={styles.childrenList}>
               {eligibleChildren.map((child) => {
                 const grade = getChildGrade(child);
+                const isChecking = sessionsLoading && selectedChild?.id === child.id;
                 return (
                   <div
                     key={child.id}
                     className={`${styles.childCard} ${
                       selectedChild?.id === child.id ? styles.selected : ''
-                    }`}
-                    onClick={() => handleChildSelect(child)}
+                    } ${isChecking ? styles.checking : ''}`}
+                    onClick={() => !sessionsLoading && handleChildSelect(child)}
                   >
                     <div className={styles.childInfo}>
                       <span className={styles.childName}>{child.name}</span>
@@ -585,7 +662,7 @@ export default function TeacherAssessmentPage() {
                       </span>
                     </div>
                     <span className={`${styles.childStatus} ${styles.eligible}`}>
-                      검사 가능
+                      {isChecking ? '확인 중...' : '검사 가능'}
                     </span>
                   </div>
                 );
@@ -597,9 +674,9 @@ export default function TeacherAssessmentPage() {
                 type="button"
                 className={styles.primaryButton}
                 onClick={handleStartAssessment}
-                disabled={!selectedChild || childrenLoading}
+                disabled={!selectedChild || childrenLoading || sessionsLoading || showResumeModal}
               >
-                {childrenLoading ? '준비 중...' : '검사 시작'}
+                {childrenLoading ? '준비 중...' : sessionsLoading ? '세션 확인 중...' : '검사 시작'}
               </button>
             </div>
           </>
@@ -838,6 +915,113 @@ export default function TeacherAssessmentPage() {
     </section>
   );
 
+  /**
+   * 모달 닫기 (선택하지 않고 닫을 때)
+   */
+  const handleCloseModal = () => {
+    setShowResumeModal(false);
+    setExistingSessions([]);
+    setSelectedChild(null); // 아동 선택도 해제
+  };
+
+  /**
+   * 세션 재개 모달 렌더링
+   */
+  const renderResumeModal = () => {
+    if (!showResumeModal || existingSessions.length === 0) return null;
+
+    const latestSession = existingSessions[0]; // 가장 최근 세션
+    const progressPercent = latestSession.total_questions > 0
+      ? Math.round((latestSession.answered_count / latestSession.total_questions) * 100)
+      : 0;
+
+    const formatDate = (dateStr: string) => {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    };
+
+    return (
+      <div className={styles.modalOverlay} onClick={handleCloseModal}>
+        <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+          <div className={styles.modalHeader}>
+            <h3>진행 중인 검사가 있습니다</h3>
+            <button
+              type="button"
+              className={styles.modalClose}
+              onClick={handleCloseModal}
+              aria-label="닫기"
+            >
+              ×
+            </button>
+          </div>
+
+          <div className={styles.modalBody}>
+            <div className={styles.sessionInfo}>
+              <div className={styles.sessionChild}>
+                <span className={styles.avatar}>
+                  {selectedChild?.name.charAt(0)}
+                </span>
+                <div className={styles.sessionChildInfo}>
+                  <strong>{selectedChild?.name}</strong>
+                  <span>{selectedAssessmentTool?.shortName}</span>
+                </div>
+              </div>
+
+              <div className={styles.sessionProgress}>
+                <div className={styles.progressLabel}>
+                  <span>진행률</span>
+                  <span className={styles.progressValue}>{progressPercent}%</span>
+                </div>
+                <div className={styles.progressTrack}>
+                  <div
+                    className={styles.progressFill}
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+                <div className={styles.progressDetail}>
+                  {latestSession.answered_count} / {latestSession.total_questions} 문항 응답
+                </div>
+              </div>
+
+              <div className={styles.sessionMeta}>
+                <span>마지막 저장: {formatDate(latestSession.updated_at)}</span>
+              </div>
+            </div>
+
+            <p className={styles.modalDescription}>
+              이전에 진행하던 검사를 이어서 진행하시겠습니까?
+              <br />
+              새로 시작하면 기존 응답이 삭제됩니다.
+            </p>
+          </div>
+
+          <div className={styles.modalActions}>
+            <button
+              type="button"
+              className={styles.primaryButton}
+              onClick={() => handleResumeSession(latestSession)}
+            >
+              이어서 진행
+            </button>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={handleStartNewAssessment}
+            >
+              새로 시작
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className={styles.container}>
       {renderHeader()}
@@ -851,6 +1035,7 @@ export default function TeacherAssessmentPage() {
         {phase === 'result' && renderResultSection()}
         {phase === 'error' && renderErrorSection()}
       </main>
+      {renderResumeModal()}
     </div>
   );
 }

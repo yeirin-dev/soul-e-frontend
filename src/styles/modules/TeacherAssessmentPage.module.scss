@@ -315,6 +315,11 @@
       }
     }
 
+    &.checking {
+      cursor: wait;
+      opacity: 0.8;
+    }
+
     .childInfo {
       display: flex;
       flex-direction: column;
@@ -941,4 +946,185 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
+}
+
+// =============================================================================
+// 세션 재개 모달
+// =============================================================================
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+}
+
+.modalContent {
+  background: white;
+  border-radius: 16px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  animation: modalSlideIn 0.2s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid $gray200;
+
+  h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+}
+
+.modalClose {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  font-size: 24px;
+  color: $text-muted;
+  cursor: pointer;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: $gray100;
+    color: $text-primary;
+  }
+}
+
+.modalBody {
+  padding: 24px;
+}
+
+.sessionInfo {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.sessionChild {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+
+  .avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: $main100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 600;
+    color: white;
+  }
+
+  .sessionChildInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    strong {
+      font-size: 15px;
+      font-weight: 600;
+      color: $text-primary;
+    }
+
+    span {
+      font-size: 13px;
+      color: $text-secondary;
+    }
+  }
+}
+
+.sessionProgress {
+  margin-bottom: 12px;
+
+  .progressLabel {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+
+    span {
+      font-size: 13px;
+      color: $text-secondary;
+    }
+
+    .progressValue {
+      font-weight: 600;
+      color: $main100;
+    }
+  }
+
+  .progressTrack {
+    height: 8px;
+    background: $gray200;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 8px;
+
+    .progressFill {
+      height: 100%;
+      background: linear-gradient(90deg, $main100 0%, $main200 100%);
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+  }
+
+  .progressDetail {
+    font-size: 12px;
+    color: $text-muted;
+    text-align: right;
+  }
+}
+
+.sessionMeta {
+  font-size: 12px;
+  color: $text-muted;
+}
+
+.modalDescription {
+  font-size: 14px;
+  color: $text-secondary;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.modalActions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 24px 24px;
 }
