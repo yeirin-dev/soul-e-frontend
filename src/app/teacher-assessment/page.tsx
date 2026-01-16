@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { InputField } from '@/components/InputField';
 import { Select } from '@/components/Select';
 import { authApi, teacherAssessmentApi, TokenManager } from '@/lib/api';
@@ -542,10 +543,10 @@ export default function TeacherAssessmentPage() {
 
   const renderHeader = () => (
     <header className={styles.header}>
-      <div className={styles.logo}>
+      <Link href="/" className={styles.logo}>
         <Image src="/yeirin-logo.png" alt="예이린" width={32} height={32} />
         <span>교사 평정용 검사 시스템</span>
-      </div>
+      </Link>
       {teacherInfo && (
         <div className={styles.institutionInfo}>
           <span>{teacherInfo.facility_name}</span>
