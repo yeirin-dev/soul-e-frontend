@@ -1161,3 +1161,18 @@
     transform: rotate(360deg);
   }
 }
+
+// ==========================================================================
+// 개발용 테스트 버튼
+// ==========================================================================
+
+.testButton {
+  background: #ff6b6b !important;
+  color: white !important;
+  border: none !important;
+  font-size: 12px !important;
+
+  &:hover {
+    background: #ee5a5a !important;
+  }
+}

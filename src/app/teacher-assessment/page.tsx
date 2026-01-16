@@ -485,6 +485,33 @@ export default function TeacherAssessmentPage() {
     }
   };
 
+  /**
+   * [개발용] 모든 문항을 1로 채우고 제출
+   */
+  const handleTestFillAndSubmit = async () => {
+    if (!session) return;
+
+    // 모든 문항을 1로 채움
+    const testAnswers: Record<number, number> = {};
+    questions.forEach((q) => {
+      testAnswers[q.number] = 1;
+    });
+
+    setPhase('submitting');
+
+    try {
+      const resultData = await teacherAssessmentApi.submitAssessment(session.session_id, {
+        answers: testAnswers,
+      });
+      setResult(resultData);
+      setPhase('result');
+    } catch (err: any) {
+      console.error('[DEV] 테스트 제출 실패:', err);
+      setError(err.response?.data?.detail || '검사 제출에 실패했습니다.');
+      setPhase('error');
+    }
+  };
+
   // ==========================================================================
   // 새 검사 시작
   // ==========================================================================
@@ -822,7 +849,7 @@ export default function TeacherAssessmentPage() {
             <button onClick={handlePrevSection} disabled={currentSection === 1}>
               이전 섹션
             </button>
-            <button onClick={handleNextSection} disabled={isLastSection}>
+            <button onClick={handleNextSection} disabled={isLastSection || !isSectionComplete}>
               다음 섹션
             </button>
           </div>
@@ -866,6 +893,17 @@ export default function TeacherAssessmentPage() {
             이전 섹션
           </button>
 
+          {/* 개발용 테스트 버튼 - 모든 문항을 1로 채우고 제출 */}
+          {process.env.NODE_ENV === 'development' && (
+            <button
+              type="button"
+              className={`${styles.navButton} ${styles.testButton}`}
+              onClick={handleTestFillAndSubmit}
+            >
+              [DEV] 전체 1로 제출
+            </button>
+          )}
+
           {isLastSection ? (
             <button
               type="button"
@@ -879,6 +917,7 @@ export default function TeacherAssessmentPage() {
               type="button"
               className={`${styles.navButton} ${styles.primary}`}
               onClick={handleNextSection}
+              disabled={!isSectionComplete}
             >
               다음 섹션
             </button>
