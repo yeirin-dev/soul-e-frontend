@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { InputField } from '@/components/InputField';
 import { Select } from '@/components/Select';
 import { authApi, teacherAssessmentApi, TokenManager } from '@/lib/api';
@@ -568,12 +567,21 @@ export default function TeacherAssessmentPage() {
   // 렌더링
   // ==========================================================================
 
+  const handleGoToMain = () => {
+    // 검사도구 선택 화면으로 이동
+    setPhase('assessment-select');
+    setSelectedAssessmentTool(null);
+    setSelectedChild(null);
+    setSession(null);
+    setAnswers({});
+  };
+
   const renderHeader = () => (
     <header className={styles.header}>
-      <Link href="/" className={styles.logo}>
+      <button type="button" className={styles.logo} onClick={handleGoToMain}>
         <Image src="/yeirin-logo.png" alt="예이린" width={32} height={32} />
         <span>교사 평정용 검사 시스템</span>
-      </Link>
+      </button>
       {teacherInfo && (
         <div className={styles.institutionInfo}>
           <span>{teacherInfo.facility_name}</span>
@@ -893,16 +901,14 @@ export default function TeacherAssessmentPage() {
             이전 섹션
           </button>
 
-          {/* 개발용 테스트 버튼 - 모든 문항을 1로 채우고 제출 */}
-          {process.env.NODE_ENV === 'development' && (
-            <button
-              type="button"
-              className={`${styles.navButton} ${styles.testButton}`}
-              onClick={handleTestFillAndSubmit}
-            >
-              [DEV] 전체 1로 제출
-            </button>
-          )}
+          {/* 테스트 버튼 - 모든 문항을 1로 채우고 제출 (임시) */}
+          <button
+            type="button"
+            className={`${styles.navButton} ${styles.testButton}`}
+            onClick={handleTestFillAndSubmit}
+          >
+            [TEST] 전체 1로 제출
+          </button>
 
           {isLastSection ? (
             <button
