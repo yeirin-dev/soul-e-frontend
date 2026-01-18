@@ -286,51 +286,6 @@ function AssessmentPageContent() {
     }
   };
 
-  // [개발자 테스트용] 모든 문항을 1로 설정하고 즉시 제출
-  const handleDevTestSubmit = async () => {
-    if (!selectedChild) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // 1. 세션 시작
-      const newSession = await assessmentApi.startAssessment({
-        child_id: selectedChild.id,
-        child_name: selectedChild.name,
-        gender: selectedChild.gender === '남자' ? 'M' : 'F',
-        birth_date: selectedChild.birth_date,
-        school_grade: calculateGrade(selectedChild.birth_date),
-        assessment_type: assessmentTypeValue,
-      });
-
-      setSession(newSession);
-
-      // 2. 모든 문항에 대해 1번 선택지(값: 1)로 답변 생성
-      const testAnswers: Record<number, number> = {};
-      questions.forEach((q) => {
-        testAnswers[q.number] = 1; // 모든 문항 "약간 그렇다" 선택
-      });
-
-      setAnswers(testAnswers);
-      setPhase('submitting');
-
-      // 3. 바로 제출
-      const submitResult = await assessmentApi.submitAssessment(newSession.session_id, {
-        answers: testAnswers,
-      });
-
-      setResult(submitResult);
-      setPhase('result');
-    } catch (err: any) {
-      console.error('Dev test submit failed:', err);
-      setError(err?.response?.data?.detail?.error || err?.message || '테스트 제출에 실패했습니다.');
-      setPhase('intro');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // 학년 계산 (생년월일 기준)
   const calculateGrade = (birthDate: string): number => {
     const today = new Date();
@@ -713,17 +668,6 @@ function AssessmentPageContent() {
               ? '이어서 할래!'
               : '시작할래!'}
           </button>
-
-          {/* 개발자 테스트용 버튼 - 진행 중이 아닐 때만 표시 */}
-          {!assessmentStatus?.has_in_progress && (
-            <button
-              className={cx('devTestButton')}
-              onClick={handleDevTestSubmit}
-              disabled={isLoading || questions.length === 0}
-            >
-              {isLoading ? '제출 중...' : '🧪 빠른 테스트 (개발자용)'}
-            </button>
-          )}
         </section>
       )}
 
