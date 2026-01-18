@@ -26,6 +26,35 @@
   top: 0;
   z-index: 100;
 
+  .headerLeft {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .headerRight {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .backButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: $gray100;
+    color: $text-primary;
+    font-size: 18px;
+    transition: background 0.2s;
+
+    &:hover {
+      background: $gray200;
+    }
+  }
+
   .logo {
     display: flex;
     align-items: center;
@@ -39,6 +68,26 @@
     span {
       font-size: 16px;
       font-weight: 600;
+      color: $text-primary;
+    }
+  }
+
+  .institutionName {
+    font-size: 14px;
+    color: $text-secondary;
+  }
+
+  .logoutButton {
+    padding: 8px 16px;
+    border-radius: 8px;
+    background: $gray100;
+    color: $text-secondary;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+
+    &:hover {
+      background: $gray200;
       color: $text-primary;
     }
   }

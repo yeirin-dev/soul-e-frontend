@@ -576,15 +576,95 @@ export default function TeacherAssessmentPage() {
     setAnswers({});
   };
 
+  // ==========================================================================
+  // 로그아웃 처리
+  // ==========================================================================
+
+  const handleLogout = () => {
+    const confirmed = window.confirm('로그아웃 하시겠습니까?');
+    if (!confirmed) return;
+
+    // 토큰 삭제
+    TokenManager.removeYeirinToken();
+
+    // 모든 상태 초기화
+    setTeacherInfo(null);
+    setSelectedDistrict('');
+    setSelectedFacilityId('');
+    setPassword('');
+    setSelectedAssessmentTool(null);
+    setSelectedChild(null);
+    setChildren([]);
+    setSession(null);
+    setAnswers({});
+    setResult(null);
+    setError(null);
+
+    // 로그인 화면으로 이동
+    setPhase('auth');
+  };
+
+  // ==========================================================================
+  // 뒤로가기 처리
+  // ==========================================================================
+
+  const handleGoBack = () => {
+    switch (phase) {
+      case 'children':
+        // 아동 선택 → 검사도구 선택
+        setSelectedChild(null);
+        setSelectedAssessmentTool(null);
+        setPhase('assessment-select');
+        break;
+      case 'intro':
+        // 검사 안내 → 아동 선택
+        setSession(null);
+        setAnswers({});
+        setPhase('children');
+        break;
+      case 'testing':
+        // 검사 진행 중 → 확인 후 아동 선택으로
+        const confirmed = window.confirm(
+          '검사를 중단하시겠습니까?\n진행 중인 응답은 자동 저장되어 나중에 이어서 진행할 수 있습니다.'
+        );
+        if (confirmed) {
+          setPhase('children');
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
   const renderHeader = () => (
     <header className={styles.header}>
-      <button type="button" className={styles.logo} onClick={handleGoToMain}>
-        <Image src="/yeirin-logo.png" alt="예이린" width={32} height={32} />
-        <span>교사 평정용 검사 시스템</span>
-      </button>
+      <div className={styles.headerLeft}>
+        {/* 뒤로가기 버튼 - 로그인 후, 검사도구 선택 이외의 단계에서만 표시 */}
+        {teacherInfo && phase !== 'assessment-select' && phase !== 'result' && phase !== 'submitting' && (
+          <button
+            type="button"
+            className={styles.backButton}
+            onClick={handleGoBack}
+            aria-label="뒤로가기"
+          >
+            ←
+          </button>
+        )}
+        <button type="button" className={styles.logo} onClick={handleGoToMain}>
+          <Image src="/yeirin-logo.png" alt="예이린" width={32} height={32} />
+          <span>교사 평정용 검사 시스템</span>
+        </button>
+      </div>
       {teacherInfo && (
-        <div className={styles.institutionInfo}>
-          <span>{teacherInfo.facility_name}</span>
+        <div className={styles.headerRight}>
+          <span className={styles.institutionName}>{teacherInfo.facility_name}</span>
+          <button
+            type="button"
+            className={styles.logoutButton}
+            onClick={handleLogout}
+          >
+            로그아웃
+          </button>
         </div>
       )}
     </header>
