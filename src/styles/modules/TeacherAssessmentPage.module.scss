@@ -841,16 +841,43 @@
       background: #f8f9fa;
       border-radius: 8px;
       padding: 16px;
-      margin-bottom: 24px;
+      margin-bottom: 16px;
 
       p {
         font-size: 14px;
         color: $text-secondary;
-        margin-bottom: 8px;
+        margin-bottom: 0;
+      }
+    }
 
-        &:last-child {
-          margin-bottom: 0;
-        }
+    .reportButton {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 28px;
+      background: $main100;
+      color: white;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 12px;
+      text-decoration: none;
+      margin-bottom: 24px;
+      transition: all 0.2s;
+
+      &::after {
+        content: '→';
+        font-size: 16px;
+      }
+
+      &:hover {
+        background: darken($main100, 8%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba($main100, 0.3);
+      }
+
+      &:active {
+        transform: translateY(0);
       }
     }
 

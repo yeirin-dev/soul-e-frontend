@@ -1031,14 +1031,17 @@ export default function TeacherAssessmentPage() {
             <p className={styles.childName}>{selectedChild?.name} 학생</p>
             <div className={styles.resultInfo}>
               <p>검사 결과가 성공적으로 제출되었습니다.</p>
-              {result.report_url && (
-                <p>
-                  <a href={result.report_url} target="_blank" rel="noopener noreferrer">
-                    상세 리포트 보기
-                  </a>
-                </p>
-              )}
             </div>
+            {result.report_url && (
+              <a
+                href={result.report_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.reportButton}
+              >
+                상세 리포트 보기
+              </a>
+            )}
           </>
         ) : (
           <>
