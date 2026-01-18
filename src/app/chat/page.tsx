@@ -479,6 +479,13 @@ export default function ChatPage() {
               // 검사 활성화 여부 확인 (assessmentType은 실제 API 키 값: CRTES_R, SDQ_A, KPRC_CO_SG_E)
               const isAssessmentEnabled = assessmentEnabledSettings?.[assessmentType] ?? true;
 
+              // 학년 적합성 확인 - 저학년은 KPRC 버튼 숨김 (is_eligible_for_grade가 false인 경우)
+              // status가 없으면 기본값 true (서버에서 아직 로드되지 않은 경우)
+              const isEligibleForGrade = status?.is_eligible_for_grade ?? true;
+              if (!isEligibleForGrade) {
+                return null; // 학년에 적합하지 않은 검사는 버튼 자체를 숨김
+              }
+
               // 검사가 비활성화된 경우 - 툴팁과 함께 비활성화 버튼 표시
               if (!isAssessmentEnabled) {
                 return (

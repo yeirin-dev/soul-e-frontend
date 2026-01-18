@@ -148,6 +148,7 @@ export interface ChildAssessmentStatus {
   can_start_new: boolean;
   has_in_progress: boolean;
   has_completed: boolean;
+  is_eligible_for_grade: boolean; // 아동 학년이 해당 검사에 적합한지 여부
   in_progress_session: AssessmentSession | null;
   latest_completed_session: AssessmentSession | null;
   total_completed_count: number;
