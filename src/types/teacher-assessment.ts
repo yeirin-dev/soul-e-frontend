@@ -22,19 +22,20 @@ export interface AssessmentTool {
 
 /**
  * 검사도구 목록
- * - 한국 학년 기준: 8세 = 1학년, 13세 = 6학년
- * - 학년 = 나이 - 7
+ * - 한국 학년 기준: 만 6세가 되는 해의 다음 해 3월 1일에 1학년 입학
+ * - 매년 3월 1일 기준으로 학년 진급
+ * - 초등학교 1-6학년
  */
 export const ASSESSMENT_TOOLS: AssessmentTool[] = [
   {
     code: 'KPRC_CO_TG',
     name: 'KPRC 한국 아동·청소년 인성평정척도 - 교사평정용 - 표준형',
     shortName: 'KPRC 교사평정용',
-    description: '초등학교 1~4학년 아동의 인성 및 적응을 평가하는 교사평정 검사입니다.',
+    description: '초등학교 1~3학년 아동의 인성 및 적응을 평가하는 교사평정 검사입니다.',
     minGrade: 1,
-    maxGrade: 4,
-    minAge: 8,
-    maxAge: 11,
+    maxGrade: 3,
+    minAge: 6,
+    maxAge: 10,
     questionCount: 152,
     sectionCount: 8,
   },
@@ -69,10 +70,11 @@ export type TeacherAssessmentTypeValue = (typeof TEACHER_ASSESSMENT_TYPES)[Teach
 // =============================================================================
 
 /**
- * 나이로 학년 계산 (한국 기준: 8세 = 1학년)
+ * 나이로 학년 대략적 계산 (단순화된 버전)
+ * @deprecated 정확한 학년 계산은 calculateGradeFromBirthDate 사용 권장
  */
 export function calculateGradeFromAge(age: number): number {
-  const grade = age - 7;
+  const grade = age - 6;
   if (grade < 1) return 0; // 미취학
   if (grade > 6) return 7; // 중학생 이상
   return grade;
@@ -90,6 +92,42 @@ export function calculateAge(birthDate: string): number {
     age--;
   }
   return age;
+}
+
+/**
+ * 생년월일로 대한민국 초등학교 학년 계산
+ *
+ * 대한민국 초등학교 학년 계산:
+ * - 만 6세가 되는 해의 다음 해 3월 1일에 1학년 입학
+ * - 매년 3월 1일 기준으로 학년 진급
+ * - 초등학교: 1-6학년
+ *
+ * @param birthDate 생년월일 (YYYY-MM-DD 형식)
+ * @returns 초등학교 학년 (1-6), 미취학 또는 중학생 이상이면 null
+ */
+export function calculateGradeFromBirthDate(birthDate: string): number | null {
+  const birth = new Date(birthDate);
+  const today = new Date();
+
+  // 1학년 입학 연도 계산
+  // 만 6세가 되는 해 = birth_year + 6
+  // 입학 연도 = 그 다음 해 = birth_year + 7
+  const entryYear = birth.getFullYear() + 7;
+
+  // 현재 학년도 계산 (3월 1일 기준)
+  // 1-2월은 이전 학년도에 해당
+  const currentMonth = today.getMonth() + 1; // 0-indexed → 1-indexed
+  const academicYear = currentMonth >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+
+  // 학년 계산
+  const grade = academicYear - entryYear + 1;
+
+  // 초등학교 범위 (1-6학년) 외에는 null 반환
+  if (grade < 1 || grade > 6) {
+    return null;
+  }
+
+  return grade;
 }
 
 /**
