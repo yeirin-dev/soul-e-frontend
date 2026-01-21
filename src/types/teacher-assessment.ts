@@ -187,6 +187,7 @@ export interface TeacherChildInfo {
   age: number;
   gender: string;
   grade: number | null;
+  has_completed_assessment: boolean;
   is_eligible_for_kprc_tg: boolean;
 }
 

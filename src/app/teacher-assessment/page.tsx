@@ -749,8 +749,10 @@ export default function TeacherAssessmentPage() {
   const renderChildrenSection = () => {
     if (!selectedAssessmentTool) return null;
 
-    // 선택된 검사도구의 대상 아동만 필터링
-    const eligibleChildren = children.filter(isChildEligible);
+    // 선택된 검사도구의 나이 대상 아동 (완료 여부 무관하게 표시)
+    const ageEligibleChildren = children.filter(isChildEligible);
+    // 검사 가능한 아동 수 (미완료)
+    const availableCount = ageEligibleChildren.filter((c) => c.is_eligible_for_kprc_tg).length;
 
     return (
       <section className={styles.childrenSection}>
@@ -770,7 +772,7 @@ export default function TeacherAssessmentPage() {
           검사를 진행할 아동을 선택해주세요. ({selectedAssessmentTool.minGrade}~{selectedAssessmentTool.maxGrade}학년 대상)
         </p>
 
-        {eligibleChildren.length === 0 ? (
+        {ageEligibleChildren.length === 0 ? (
           <div className={styles.emptyState}>
             <p>검사 대상 아동이 없습니다.</p>
             <p>
@@ -781,16 +783,20 @@ export default function TeacherAssessmentPage() {
         ) : (
           <>
             <div className={styles.childrenList}>
-              {eligibleChildren.map((child) => {
+              {ageEligibleChildren.map((child) => {
                 const grade = getChildGrade(child);
                 const isChecking = sessionsLoading && selectedChild?.id === child.id;
+                const isCompleted = child.has_completed_assessment;
+                const canSelect = child.is_eligible_for_kprc_tg && !isCompleted;
+
                 return (
                   <div
                     key={child.id}
                     className={`${styles.childCard} ${
                       selectedChild?.id === child.id ? styles.selected : ''
-                    } ${isChecking ? styles.checking : ''}`}
-                    onClick={() => !sessionsLoading && handleChildSelect(child)}
+                    } ${isChecking ? styles.checking : ''} ${isCompleted ? styles.completed : ''}`}
+                    onClick={() => canSelect && !sessionsLoading && handleChildSelect(child)}
+                    style={{ cursor: canSelect ? 'pointer' : 'not-allowed', opacity: isCompleted ? 0.7 : 1 }}
                   >
                     <div className={styles.childInfo}>
                       <span className={styles.childName}>{child.name}</span>
@@ -798,24 +804,30 @@ export default function TeacherAssessmentPage() {
                         {child.age}세 · {child.gender === 'M' ? '남' : '여'} · {grade}학년
                       </span>
                     </div>
-                    <span className={`${styles.childStatus} ${styles.eligible}`}>
-                      {isChecking ? '확인 중...' : '검사 가능'}
+                    <span className={`${styles.childStatus} ${isCompleted ? styles.completed : styles.eligible}`}>
+                      {isChecking ? '확인 중...' : isCompleted ? '검사 완료' : '검사 가능'}
                     </span>
                   </div>
                 );
               })}
             </div>
 
-            <div className={styles.actionButton}>
-              <button
-                type="button"
-                className={styles.primaryButton}
-                onClick={handleStartAssessment}
-                disabled={!selectedChild || childrenLoading || sessionsLoading || showResumeModal}
-              >
-                {childrenLoading ? '준비 중...' : sessionsLoading ? '세션 확인 중...' : '검사 시작'}
-              </button>
-            </div>
+            {availableCount === 0 ? (
+              <div className={styles.emptyState}>
+                <p>모든 아동이 검사를 완료했습니다.</p>
+              </div>
+            ) : (
+              <div className={styles.actionButton}>
+                <button
+                  type="button"
+                  className={styles.primaryButton}
+                  onClick={handleStartAssessment}
+                  disabled={!selectedChild || childrenLoading || sessionsLoading || showResumeModal}
+                >
+                  {childrenLoading ? '준비 중...' : sessionsLoading ? '세션 확인 중...' : '검사 시작'}
+                </button>
+              </div>
+            )}
           </>
         )}
       </section>
