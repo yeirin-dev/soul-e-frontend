@@ -686,40 +686,49 @@ export default function SpecialAssessmentPage() {
     </section>
   );
 
-  const renderAssessmentSelectSection = () => (
-    <section className={styles.assessmentSelectSection}>
-      <h2 className={styles.sectionTitle}>검사도구 선택</h2>
-      <p className={styles.sectionSubtitle}>
-        진행할 검사도구를 선택해주세요.
-        <br />
-        <strong style={{ color: '#e67e22' }}>※ 특별 검사 모드: 연령/학년 제한이 적용되지 않습니다.</strong>
-      </p>
+  const renderAssessmentSelectSection = () => {
+    // 기존 KPRC 검사 이력이 없는 아동만 카운트
+    const availableChildren = children.filter(
+      (child) => !child.has_completed_kprc_tg && !child.has_completed_kprc_sg
+    );
 
-      <div className={styles.assessmentToolList}>
-        {SPECIAL_ASSESSMENT_TOOLS.map((tool) => (
-          <div
-            key={tool.code}
-            className={styles.assessmentToolCard}
-            onClick={() => handleSelectAssessmentTool(tool)}
-          >
-            <div className={styles.toolInfo}>
-              <h3 className={styles.toolName}>{tool.name}</h3>
-              <p className={styles.toolDescription}>{tool.description}</p>
-              <div className={styles.toolMeta}>
-                <span>원래 대상: {tool.minGrade}~{tool.maxGrade}학년 ({tool.minAge}~{tool.maxAge}세)</span>
-                <span>문항: {tool.questionCount}개</span>
+    return (
+      <section className={styles.assessmentSelectSection}>
+        <h2 className={styles.sectionTitle}>검사도구 선택</h2>
+        <p className={styles.sectionSubtitle}>
+          진행할 검사도구를 선택해주세요.
+          <br />
+          <strong style={{ color: '#e67e22' }}>※ 특별 검사 모드: 연령/학년 제한이 적용되지 않습니다.</strong>
+          <br />
+          <strong style={{ color: '#999' }}>※ 기존 KPRC 검사 이력이 있는 아동은 제외됩니다.</strong>
+        </p>
+
+        <div className={styles.assessmentToolList}>
+          {SPECIAL_ASSESSMENT_TOOLS.map((tool) => (
+            <div
+              key={tool.code}
+              className={styles.assessmentToolCard}
+              onClick={() => handleSelectAssessmentTool(tool)}
+            >
+              <div className={styles.toolInfo}>
+                <h3 className={styles.toolName}>{tool.name}</h3>
+                <p className={styles.toolDescription}>{tool.description}</p>
+                <div className={styles.toolMeta}>
+                  <span>원래 대상: {tool.minGrade}~{tool.maxGrade}학년 ({tool.minAge}~{tool.maxAge}세)</span>
+                  <span>문항: {tool.questionCount}개</span>
+                </div>
+              </div>
+              <div className={styles.toolEligible}>
+                <span className={styles.hasEligible}>
+                  검사 가능 {availableChildren.length}명 / 전체 {children.length}명
+                </span>
               </div>
             </div>
-            <div className={styles.toolEligible}>
-              <span className={styles.hasEligible}>
-                전체 아동 {children.length}명
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
+          ))}
+        </div>
+      </section>
+    );
+  };
 
   const renderChildrenSection = () => {
     if (!selectedAssessmentTool) return null;
@@ -741,7 +750,7 @@ export default function SpecialAssessmentPage() {
         <p className={styles.sectionSubtitle}>
           검사를 진행할 아동을 선택해주세요.
           <br />
-          <strong style={{ color: '#e67e22' }}>※ 특별 검사 모드: 모든 아동이 검사 가능합니다.</strong>
+          <strong style={{ color: '#e67e22' }}>※ 기존 KPRC 검사 이력이 있는 아동은 특별 검사를 진행할 수 없습니다.</strong>
         </p>
 
         {children.length === 0 ? (
@@ -753,15 +762,21 @@ export default function SpecialAssessmentPage() {
             <div className={styles.childrenList}>
               {children.map((child) => {
                 const grade = getChildGrade(child);
+                const hasKprcHistory = child.has_completed_kprc_tg || child.has_completed_kprc_sg;
+                const historyType = child.has_completed_kprc_tg
+                  ? '교사평정'
+                  : child.has_completed_kprc_sg
+                    ? '자가보고'
+                    : '';
 
                 return (
                   <div
                     key={child.id}
                     className={`${styles.childCard} ${
                       selectedChild?.id === child.id ? styles.selected : ''
-                    }`}
-                    onClick={() => handleChildSelect(child)}
-                    style={{ cursor: 'pointer' }}
+                    } ${hasKprcHistory ? styles.disabled : ''}`}
+                    onClick={() => !hasKprcHistory && handleChildSelect(child)}
+                    style={{ cursor: hasKprcHistory ? 'not-allowed' : 'pointer', opacity: hasKprcHistory ? 0.6 : 1 }}
                   >
                     <div className={styles.childInfo}>
                       <span className={styles.childName}>{child.name}</span>
@@ -769,9 +784,15 @@ export default function SpecialAssessmentPage() {
                         {child.age}세 · {child.gender === 'M' ? '남' : '여'} · {grade}학년
                       </span>
                     </div>
-                    <span className={`${styles.childStatus} ${styles.eligible}`}>
-                      검사 가능
-                    </span>
+                    {hasKprcHistory ? (
+                      <span className={`${styles.childStatus} ${styles.completed}`} style={{ color: '#999', backgroundColor: '#f0f0f0' }}>
+                        검사 완료 ({historyType})
+                      </span>
+                    ) : (
+                      <span className={`${styles.childStatus} ${styles.eligible}`}>
+                        검사 가능
+                      </span>
+                    )}
                   </div>
                 );
               })}
