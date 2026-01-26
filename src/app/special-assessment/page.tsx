@@ -22,13 +22,29 @@ import type {
 import type { DistrictFacility } from '@/types/api';
 import styles from '@/styles/modules/TeacherAssessmentPage.module.scss';
 
-// 선택지 상수
-const CHOICES = [
+// 선택지 상수 - 교사평정형 (KPRC_CO_TG)
+const CHOICES_TEACHER = [
   { value: 1, label: '전혀 아니다' },
   { value: 2, label: '때때로 그렇다' },
   { value: 3, label: '자주 그렇다' },
   { value: 4, label: '거의 항상 그렇다' },
 ] as const;
+
+// 선택지 상수 - 자가보고형 (KPRC_CO_SG_E)
+const CHOICES_SELF_REPORT = [
+  { value: 0, label: '전혀 아니다' },
+  { value: 1, label: '약간 그렇다' },
+  { value: 2, label: '대체로 그렇다' },
+  { value: 3, label: '매우 그렇다' },
+] as const;
+
+// 검사 유형에 따른 선택지 반환
+const getChoicesForAssessmentType = (assessmentCode: string | undefined) => {
+  if (assessmentCode === 'KPRC_CO_SG_E') {
+    return CHOICES_SELF_REPORT;
+  }
+  return CHOICES_TEACHER;
+};
 
 export default function SpecialAssessmentPage() {
   // ==========================================================================
@@ -846,7 +862,11 @@ export default function SpecialAssessmentPage() {
           <ul>
             <li>총 {questions.length}개의 문항으로 구성되어 있습니다.</li>
             <li>{sections.length}개의 섹션으로 나누어져 있습니다.</li>
-            <li>각 문항에 대해 아동의 평소 행동을 기준으로 응답해주세요.</li>
+            {selectedAssessmentTool?.code === 'KPRC_CO_SG_E' ? (
+              <li>각 문항에 대해 <strong>아동이 직접</strong> 평소 자신의 모습을 기준으로 응답합니다.</li>
+            ) : (
+              <li>각 문항에 대해 <strong>교사/보호자가</strong> 아동의 평소 행동을 기준으로 응답합니다.</li>
+            )}
             <li>검사는 중간에 저장되므로 나중에 이어서 진행할 수 있습니다.</li>
             <li>소요 시간은 약 15-20분입니다.</li>
           </ul>
@@ -855,9 +875,9 @@ export default function SpecialAssessmentPage() {
         <div className={styles.choiceGuide}>
           <h4>응답 선택지</h4>
           <div className={styles.choices}>
-            {CHOICES.map((choice) => (
+            {getChoicesForAssessmentType(selectedAssessmentTool?.code).map((choice, index) => (
               <div key={choice.value} className={styles.choice}>
-                <span className={styles.number}>{choice.value}</span>
+                <span className={styles.number}>{index + 1}</span>
                 <span>{choice.label}</span>
               </div>
             ))}
@@ -928,7 +948,7 @@ export default function SpecialAssessmentPage() {
               <div className={styles.questionNumber}>문항 {question.number}</div>
               <div className={styles.questionText}>{question.text}</div>
               <div className={styles.choiceButtons}>
-                {CHOICES.map((choice) => (
+                {getChoicesForAssessmentType(selectedAssessmentTool?.code).map((choice) => (
                   <button
                     key={choice.value}
                     type="button"
