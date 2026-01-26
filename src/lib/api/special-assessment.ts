@@ -31,7 +31,7 @@ import type {
 
 import { SOUL_API_BASE, TokenManager } from './clients';
 
-const API_PREFIX = '/special-assessment';
+const API_PREFIX = '/api/v1/special-assessment';
 
 // =============================================================================
 // Special Access Token 관리
@@ -134,8 +134,8 @@ export const specialAssessmentApi = {
       request
     );
     // 토큰 자동 저장
-    if (response.data.token) {
-      SpecialTokenManager.setToken(response.data.token);
+    if (response.data.special_access_token) {
+      SpecialTokenManager.setToken(response.data.special_access_token);
     }
     return response.data;
   },

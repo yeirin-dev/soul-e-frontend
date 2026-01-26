@@ -129,8 +129,9 @@ export interface AdminKeyVerifyRequest {
 
 export interface AdminKeyVerifyResponse {
   verified: boolean;
-  token: string;
+  special_access_token: string | null;
   expires_in_hours: number;
+  message: string | null;
 }
 
 // =============================================================================
