@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
+import classNames from 'classnames/bind';
 import { InputField } from '@/components/InputField';
 import { Select } from '@/components/Select';
+import { SoulECharacter } from '@/components/SoulECharacter';
 import { authApi, TokenManager } from '@/lib/api';
 import { specialAssessmentApi, SpecialTokenManager } from '@/lib/api/special-assessment';
 import type {
@@ -21,6 +23,10 @@ import type {
 } from '@/types/teacher-assessment';
 import type { DistrictFacility } from '@/types/api';
 import styles from '@/styles/modules/TeacherAssessmentPage.module.scss';
+import assessmentStyles from '@/styles/modules/AssessmentPage.module.scss';
+
+// 자가보고형 UI용 classNames 바인딩
+const cx = classNames.bind(assessmentStyles);
 
 // 선택지 상수 - 교사평정형 (KPRC_CO_TG)
 const CHOICES_TEACHER = [
@@ -96,6 +102,11 @@ export default function SpecialAssessmentPage() {
   // Auto-save
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedAnswersRef = useRef<string>('');
+
+  // 자가보고형 UI용 상태 (한 문항씩 표시)
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [focusedChoiceIndex, setFocusedChoiceIndex] = useState<number>(-1);
+  const answersRef = useRef<Record<number, number>>({});
 
   // 세션 복구 중 로딩 상태
   const [isRestoringSession, setIsRestoringSession] = useState(true);
@@ -397,6 +408,109 @@ export default function SpecialAssessmentPage() {
       }
     };
   }, [answers, phase, session, currentSection, sections]);
+
+  // ==========================================================================
+  // 자가보고형 UI - answers ref 동기화
+  // ==========================================================================
+
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+
+  // ==========================================================================
+  // 자가보고형 UI - 현재 문항
+  // ==========================================================================
+
+  const currentQuestion = questions[currentQuestionIndex];
+
+  // 문항 변경 시 포커스 인덱스 초기화
+  useEffect(() => {
+    if (currentQuestion && selectedAssessmentTool?.code === 'KPRC_CO_SG_E') {
+      const currentAnswer = answers[currentQuestion.number];
+      if (currentAnswer !== undefined) {
+        const selectedIndex = CHOICES_SELF_REPORT.findIndex((c) => c.value === currentAnswer);
+        setFocusedChoiceIndex(selectedIndex);
+      } else {
+        setFocusedChoiceIndex(-1);
+      }
+    }
+  }, [currentQuestionIndex, currentQuestion, answers, selectedAssessmentTool?.code]);
+
+  // ==========================================================================
+  // 자가보고형 UI - 키보드 네비게이션
+  // ==========================================================================
+
+  useEffect(() => {
+    if (phase !== 'testing' || !currentQuestion || selectedAssessmentTool?.code !== 'KPRC_CO_SG_E') return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const choices = CHOICES_SELF_REPORT;
+      const choicesCount = choices.length;
+
+      switch (e.key) {
+        case 'ArrowUp':
+          e.preventDefault();
+          setFocusedChoiceIndex((prev) => (prev <= 0 ? choicesCount - 1 : prev - 1));
+          break;
+
+        case 'ArrowDown':
+          e.preventDefault();
+          setFocusedChoiceIndex((prev) => (prev >= choicesCount - 1 ? 0 : prev + 1));
+          break;
+
+        case 'Enter':
+          e.preventDefault();
+          if (focusedChoiceIndex >= 0 && focusedChoiceIndex < choicesCount) {
+            const selectedChoice = choices[focusedChoiceIndex];
+            handleAnswer(currentQuestion.number, selectedChoice.value);
+            // 다음 문항으로 이동
+            setTimeout(() => {
+              if (currentQuestionIndex < questions.length - 1) {
+                setCurrentQuestionIndex((prev) => prev + 1);
+              }
+            }, 200);
+          }
+          break;
+
+        case 'ArrowLeft':
+          e.preventDefault();
+          if (currentQuestionIndex > 0) {
+            setCurrentQuestionIndex((prev) => prev - 1);
+          }
+          break;
+
+        case 'ArrowRight':
+          e.preventDefault();
+          if (currentQuestionIndex < questions.length - 1 && answers[currentQuestion.number] !== undefined) {
+            setCurrentQuestionIndex((prev) => prev + 1);
+          }
+          break;
+
+        case '1':
+        case '2':
+        case '3':
+        case '4': {
+          const choiceIndex = parseInt(e.key) - 1;
+          if (choiceIndex < choicesCount) {
+            e.preventDefault();
+            const choice = choices[choiceIndex];
+            handleAnswer(currentQuestion.number, choice.value);
+            setFocusedChoiceIndex(choiceIndex);
+            // 다음 문항으로 이동
+            setTimeout(() => {
+              if (currentQuestionIndex < questions.length - 1) {
+                setCurrentQuestionIndex((prev) => prev + 1);
+              }
+            }, 200);
+          }
+          break;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [phase, currentQuestion, focusedChoiceIndex, currentQuestionIndex, questions.length, answers, selectedAssessmentTool?.code]);
 
   // ==========================================================================
   // 섹션 네비게이션
@@ -839,57 +953,117 @@ export default function SpecialAssessmentPage() {
     );
   };
 
-  const renderIntroSection = () => (
-    <section className={styles.introSection}>
-      <div className={styles.introCard}>
-        <h2>{selectedAssessmentTool?.name || '특별 검사'}</h2>
+  const renderIntroSection = () => {
+    const isSelfReport = selectedAssessmentTool?.code === 'KPRC_CO_SG_E';
 
-        {selectedChild && (
-          <div className={styles.childSummary}>
-            <div className={styles.avatar}>{selectedChild.name.charAt(0)}</div>
-            <div className={styles.info}>
-              <h3>{selectedChild.name}</h3>
-              <p>
-                {selectedChild.age}세 · {selectedChild.gender === 'M' ? '남' : '여'} ·{' '}
-                {formatGrade(getChildGrade(selectedChild))}
-              </p>
+    if (isSelfReport) {
+      // 자가보고형: 아동 친화적 인트로 UI
+      return (
+        <section className={cx('introSection')}>
+          <button className={cx('backButtonFloat')} onClick={handleGoBack}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          <div className={cx('characterWrapper')}>
+            <SoulECharacter state="greeting" size="large" />
+          </div>
+
+          <div className={cx('introContent')}>
+            <h1>안녕, {selectedChild?.name}!</h1>
+            <p>
+              나랑 같이 재미있는 질문들에 답해볼래?
+            </p>
+            <p>
+              맞고 틀린 건 없어! 느끼는 대로 편하게 골라줘~
+            </p>
+          </div>
+
+          <div className={cx('infoCard')}>
+            <div className={cx('infoItem')}>
+              <div className={cx('icon')}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+                  <rect x="9" y="3" width="6" height="4" rx="1" />
+                </svg>
+              </div>
+              <div className={cx('infoText')}>
+                <span className={cx('label')}>질문</span>
+                <span className={cx('value')}>{questions.length}개</span>
+              </div>
+            </div>
+
+            <div className={cx('infoItem')}>
+              <div className={cx('icon')}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+              </div>
+              <div className={cx('infoText')}>
+                <span className={cx('label')}>걸리는 시간</span>
+                <span className={cx('value')}>20~30분 정도</span>
+              </div>
             </div>
           </div>
-        )}
 
-        <div className={styles.instructions}>
-          <h3>검사 안내</h3>
-          <ul>
-            <li>총 {questions.length}개의 문항으로 구성되어 있습니다.</li>
-            <li>{sections.length}개의 섹션으로 나누어져 있습니다.</li>
-            {selectedAssessmentTool?.code === 'KPRC_CO_SG_E' ? (
-              <li>각 문항에 대해 <strong>아동이 직접</strong> 평소 자신의 모습을 기준으로 응답합니다.</li>
-            ) : (
-              <li>각 문항에 대해 <strong>교사/보호자가</strong> 아동의 평소 행동을 기준으로 응답합니다.</li>
-            )}
-            <li>검사는 중간에 저장되므로 나중에 이어서 진행할 수 있습니다.</li>
-            <li>소요 시간은 약 15-20분입니다.</li>
-          </ul>
-        </div>
+          <button className={cx('startButton')} onClick={handleBeginTest}>
+            시작할래!
+          </button>
+        </section>
+      );
+    }
 
-        <div className={styles.choiceGuide}>
-          <h4>응답 선택지</h4>
-          <div className={styles.choices}>
-            {getChoicesForAssessmentType(selectedAssessmentTool?.code).map((choice, index) => (
-              <div key={choice.value} className={styles.choice}>
-                <span className={styles.number}>{index + 1}</span>
-                <span>{choice.label}</span>
+    // 교사평정형: 기존 UI
+    return (
+      <section className={styles.introSection}>
+        <div className={styles.introCard}>
+          <h2>{selectedAssessmentTool?.name || '특별 검사'}</h2>
+
+          {selectedChild && (
+            <div className={styles.childSummary}>
+              <div className={styles.avatar}>{selectedChild.name.charAt(0)}</div>
+              <div className={styles.info}>
+                <h3>{selectedChild.name}</h3>
+                <p>
+                  {selectedChild.age}세 · {selectedChild.gender === 'M' ? '남' : '여'} ·{' '}
+                  {formatGrade(getChildGrade(selectedChild))}
+                </p>
               </div>
-            ))}
+            </div>
+          )}
+
+          <div className={styles.instructions}>
+            <h3>검사 안내</h3>
+            <ul>
+              <li>총 {questions.length}개의 문항으로 구성되어 있습니다.</li>
+              <li>{sections.length}개의 섹션으로 나누어져 있습니다.</li>
+              <li>각 문항에 대해 <strong>교사/보호자가</strong> 아동의 평소 행동을 기준으로 응답합니다.</li>
+              <li>검사는 중간에 저장되므로 나중에 이어서 진행할 수 있습니다.</li>
+              <li>소요 시간은 약 15-20분입니다.</li>
+            </ul>
+          </div>
+
+          <div className={styles.choiceGuide}>
+            <h4>응답 선택지</h4>
+            <div className={styles.choices}>
+              {CHOICES_TEACHER.map((choice, index) => (
+                <div key={choice.value} className={styles.choice}>
+                  <span className={styles.number}>{index + 1}</span>
+                  <span>{choice.label}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      <button type="button" className={`${styles.primaryButton} ${styles.startButton}`} onClick={handleBeginTest}>
-        검사 시작하기
-      </button>
-    </section>
-  );
+        <button type="button" className={`${styles.primaryButton} ${styles.startButton}`} onClick={handleBeginTest}>
+          검사 시작하기
+        </button>
+      </section>
+    );
+  };
 
   const renderTestingSection = () => {
     const progress = getProgress();
@@ -998,61 +1172,231 @@ export default function SpecialAssessmentPage() {
     );
   };
 
-  const renderSubmittingSection = () => (
-    <section className={styles.submittingSection}>
-      <div className={styles.spinner} />
-      <h2>검사를 제출하고 있습니다</h2>
-      <p>잠시만 기다려주세요...</p>
-    </section>
-  );
+  // ==========================================================================
+  // 자가보고형 UI - 아동 친화적 단일 문항 표시
+  // ==========================================================================
 
-  const renderResultSection = () => (
-    <section className={styles.resultSection}>
-      <div className={styles.resultCard}>
-        {result?.is_success ? (
-          <>
-            <div className={styles.successIcon} />
-            <h2>검사가 완료되었습니다</h2>
-            <p className={styles.childName}>{selectedChild?.name} 학생</p>
-            <div className={styles.resultInfo}>
-              <p>검사 결과가 성공적으로 제출되었습니다.</p>
+  const renderSelfReportTestingSection = () => {
+    if (!currentQuestion) return null;
+
+    const progress = getProgress();
+    const choices = CHOICES_SELF_REPORT;
+
+    return (
+      <div className={cx('assessmentPage')}>
+        <header className={cx('header')}>
+          <button className={cx('backButton')} onClick={handleGoBack}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            나가기
+          </button>
+          <div className={cx('progressInfo')}>
+            <span className={cx('progressText')}>{progress.percentage}%</span>
+            <div className={cx('progressBar')}>
+              <div className={cx('progressFill')} style={{ width: `${progress.percentage}%` }} />
             </div>
-            {result.report_url && (
-              <a
-                href={result.report_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={styles.reportButton}
-              >
-                상세 리포트 보기
-              </a>
-            )}
-          </>
-        ) : (
-          <>
-            <div className={styles.errorIcon} />
-            <h2>검사 처리 중 오류가 발생했습니다</h2>
-            <p className={styles.errorMessage}>
-              {result?.error_message || '알 수 없는 오류가 발생했습니다.'}
-            </p>
-          </>
-        )}
+          </div>
+        </header>
 
-        <div className={styles.actionButtons}>
-          <button type="button" className={styles.primaryButton} onClick={handleNewAssessment}>
-            다른 아동 검사하기
-          </button>
-          <button
-            type="button"
-            className={styles.secondaryButton}
-            onClick={handleLogout}
-          >
-            로그아웃
-          </button>
-        </div>
+        <section className={cx('questionSection')}>
+          <div className={cx('questionCard')}>
+            <span className={cx('questionNumber')}>
+              문항 {currentQuestionIndex + 1} / {questions.length}
+            </span>
+            <p className={cx('questionText')}>{currentQuestion.text}</p>
+          </div>
+
+          <div className={cx('choicesContainer')}>
+            {choices.map((choice, index) => (
+              <button
+                key={choice.value}
+                className={cx('choiceButton', {
+                  selected: answers[currentQuestion.number] === choice.value,
+                  focused: focusedChoiceIndex === index,
+                })}
+                onClick={() => {
+                  handleAnswer(currentQuestion.number, choice.value);
+                  setFocusedChoiceIndex(index);
+                }}
+                onMouseEnter={() => setFocusedChoiceIndex(index)}
+              >
+                <span className={cx('choiceNumber')}>{index + 1}</span>
+                <span className={cx('choiceIndicator')} />
+                <span className={cx('choiceLabel')}>{choice.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* 키보드 단축키 안내 */}
+          <div className={cx('keyboardHint')}>
+            <span>↑↓ 선택</span>
+            <span>Enter 확인</span>
+            <span>←→ 이전/다음</span>
+            <span>1~{choices.length} 바로선택</span>
+          </div>
+
+          <div className={cx('navigationButtons')}>
+            <button
+              className={cx('prevButton')}
+              onClick={() => setCurrentQuestionIndex((prev) => prev - 1)}
+              disabled={currentQuestionIndex === 0}
+            >
+              이전
+            </button>
+
+            {currentQuestionIndex < questions.length - 1 ? (
+              <button
+                className={cx('nextButton')}
+                onClick={() => setCurrentQuestionIndex((prev) => prev + 1)}
+                disabled={answers[currentQuestion.number] === undefined}
+              >
+                다음
+              </button>
+            ) : (
+              <button
+                className={cx('submitButton')}
+                onClick={handleSubmit}
+                disabled={Object.keys(answers).length < questions.length}
+              >
+                검사 완료
+              </button>
+            )}
+          </div>
+        </section>
       </div>
-    </section>
-  );
+    );
+  };
+
+  const renderSubmittingSection = () => {
+    const isSelfReport = selectedAssessmentTool?.code === 'KPRC_CO_SG_E';
+
+    if (isSelfReport) {
+      // 자가보고형: 아동 친화적 UI
+      return (
+        <div className={cx('submittingOverlay')}>
+          <div className={cx('submittingContent')}>
+            <SoulECharacter state="thinking" size="large" />
+            <h3>검사 결과를 분석하고 있어요...</h3>
+            <p>잠시만 기다려주세요</p>
+          </div>
+        </div>
+      );
+    }
+
+    // 교사평정형: 기존 UI
+    return (
+      <section className={styles.submittingSection}>
+        <div className={styles.spinner} />
+        <h2>검사를 제출하고 있습니다</h2>
+        <p>잠시만 기다려주세요...</p>
+      </section>
+    );
+  };
+
+  const renderResultSection = () => {
+    const isSelfReport = selectedAssessmentTool?.code === 'KPRC_CO_SG_E';
+
+    if (isSelfReport) {
+      // 자가보고형: 아동 친화적 UI
+      return (
+        <section className={cx('resultSection')}>
+          <div className={cx('resultCard')}>
+            {result?.is_success ? (
+              <>
+                <div className={cx('characterWrapper')}>
+                  <SoulECharacter state="greeting" size="large" />
+                </div>
+                <h2>검사 끝!</h2>
+                <p className={cx('resultMessage')}>
+                  {selectedChild?.name} 친구, 끝까지 잘 해줬어! 고마워~
+                </p>
+                <p className={cx('resultSubMessage')}>
+                  결과는 선생님께 전달해드릴게!
+                </p>
+              </>
+            ) : (
+              <>
+                <div className={cx('resultIcon', 'error')}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                </div>
+                <h2>앗, 문제가 생겼어요</h2>
+                <p className={cx('resultMessage')}>
+                  {result?.error_message || '다시 한번 시도해볼까?'}
+                </p>
+              </>
+            )}
+
+            <div className={cx('resultButtons')}>
+              <button className={cx('primaryButton')} onClick={handleNewAssessment}>
+                다른 친구 검사하기
+              </button>
+              <button
+                className={cx('secondaryButton')}
+                style={{ marginTop: '8px', background: 'transparent', border: '1px solid #ddd' }}
+                onClick={handleLogout}
+              >
+                로그아웃
+              </button>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    // 교사평정형: 기존 UI
+    return (
+      <section className={styles.resultSection}>
+        <div className={styles.resultCard}>
+          {result?.is_success ? (
+            <>
+              <div className={styles.successIcon} />
+              <h2>검사가 완료되었습니다</h2>
+              <p className={styles.childName}>{selectedChild?.name} 학생</p>
+              <div className={styles.resultInfo}>
+                <p>검사 결과가 성공적으로 제출되었습니다.</p>
+              </div>
+              {result.report_url && (
+                <a
+                  href={result.report_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.reportButton}
+                >
+                  상세 리포트 보기
+                </a>
+              )}
+            </>
+          ) : (
+            <>
+              <div className={styles.errorIcon} />
+              <h2>검사 처리 중 오류가 발생했습니다</h2>
+              <p className={styles.errorMessage}>
+                {result?.error_message || '알 수 없는 오류가 발생했습니다.'}
+              </p>
+            </>
+          )}
+
+          <div className={styles.actionButtons}>
+            <button type="button" className={styles.primaryButton} onClick={handleNewAssessment}>
+              다른 아동 검사하기
+            </button>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={handleLogout}
+            >
+              로그아웃
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  };
 
   const renderErrorSection = () => (
     <section className={styles.errorSection}>
@@ -1082,6 +1426,14 @@ export default function SpecialAssessmentPage() {
     );
   }
 
+  // 자가보고형은 아동 친화적 UI 사용
+  const isSelfReportType = selectedAssessmentTool?.code === 'KPRC_CO_SG_E';
+
+  // 자가보고형 testing phase는 별도 전체 화면 UI 사용
+  if (phase === 'testing' && isSelfReportType) {
+    return renderSelfReportTestingSection();
+  }
+
   return (
     <div className={styles.container}>
       {renderHeader()}
@@ -1091,7 +1443,7 @@ export default function SpecialAssessmentPage() {
         {phase === 'assessment-select' && renderAssessmentSelectSection()}
         {phase === 'children' && renderChildrenSection()}
         {phase === 'intro' && renderIntroSection()}
-        {phase === 'testing' && renderTestingSection()}
+        {phase === 'testing' && !isSelfReportType && renderTestingSection()}
         {phase === 'submitting' && renderSubmittingSection()}
         {phase === 'result' && renderResultSection()}
         {phase === 'error' && renderErrorSection()}
