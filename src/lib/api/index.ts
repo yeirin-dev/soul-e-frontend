@@ -570,6 +570,13 @@ export { assessmentApi } from './assessment';
 export { teacherAssessmentApi } from './teacher-assessment';
 
 // =============================================================================
+// Special Assessment API (Soul Backend - Port 8000, special_access_token 인증)
+// 특별 검사 시스템 (연령 제한 우회)
+// =============================================================================
+
+export { specialAssessmentApi, SpecialTokenManager } from './special-assessment';
+
+// =============================================================================
 // Settings API (Yeirin Backend - Port 3000, 인증 불필요)
 // =============================================================================
 
