@@ -260,6 +260,15 @@ export default function SpecialAssessmentPage() {
   };
 
   /**
+   * 학년 표시 포맷 (0 = 미취학)
+   */
+  const formatGrade = (grade: number): string => {
+    if (grade <= 0) return '미취학';
+    if (grade > 6) return `중${grade - 6}`;
+    return `${grade}학년`;
+  };
+
+  /**
    * 성별 변환 (MALE/FEMALE → M/F)
    */
   const convertGender = (gender: string): 'M' | 'F' => {
@@ -781,7 +790,7 @@ export default function SpecialAssessmentPage() {
                     <div className={styles.childInfo}>
                       <span className={styles.childName}>{child.name}</span>
                       <span className={styles.childDetails}>
-                        {child.age}세 · {child.gender === 'M' ? '남' : '여'} · {grade}학년
+                        {child.age}세 · {child.gender === 'M' ? '남' : '여'} · {formatGrade(grade)}
                       </span>
                     </div>
                     {hasKprcHistory ? (
@@ -826,7 +835,7 @@ export default function SpecialAssessmentPage() {
               <h3>{selectedChild.name}</h3>
               <p>
                 {selectedChild.age}세 · {selectedChild.gender === 'M' ? '남' : '여'} ·{' '}
-                {getChildGrade(selectedChild)}학년
+                {formatGrade(getChildGrade(selectedChild))}
               </p>
             </div>
           </div>
