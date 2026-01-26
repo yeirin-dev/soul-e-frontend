@@ -543,6 +543,13 @@ export default function SpecialAssessmentPage() {
     answersRef.current = answers;
   }, [answers]);
 
+  // 디버깅: questions 상태 변경 추적
+  useEffect(() => {
+    if (questions.length > 0) {
+      console.log(`[questions 상태 변경] 총 ${questions.length}개, 범위: Q${questions[0]?.number} ~ Q${questions[questions.length - 1]?.number}`);
+    }
+  }, [questions]);
+
   // ==========================================================================
   // 자가보고형 UI - 현재 문항
   // ==========================================================================
@@ -737,8 +744,11 @@ export default function SpecialAssessmentPage() {
     const percentage = total > 0 ? Math.round((answered / total) * 100) : 0;
 
     // 디버깅: 진행률이 이상할 때 로그
-    if (total > 0 && answered > 0 && percentage < 100 && answered >= 164) {
+    if (total > 0 && answered > 0 && percentage < 100 && answered >= 100) {
+      const answerKeys = Object.keys(answers).map(Number).sort((a, b) => a - b);
       console.warn(`[진행률 이상] total=${total}, answered=${answered}, percentage=${percentage}%`);
+      console.warn(`[답변 문항 번호] min=${answerKeys[0]}, max=${answerKeys[answerKeys.length - 1]}`);
+      console.warn(`[문항 배열] 첫 문항=${questions[0]?.number}, 마지막=${questions[questions.length - 1]?.number}`);
     }
 
     return {
