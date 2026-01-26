@@ -358,6 +358,14 @@ export default function SpecialAssessmentPage() {
         specialAssessmentApi.getSections(selectedAssessmentTool.code),
         specialAssessmentApi.getAllQuestions(selectedAssessmentTool.code),
       ]);
+
+      // 디버깅: 문항 수 검증
+      const expectedCount = selectedAssessmentTool.code === 'KPRC_CO_SG_E' ? 164 : 152;
+      console.log(`[세션 재개] ${selectedAssessmentTool.code}: 받은 문항 수 ${questionsData.length}개 (예상: ${expectedCount}개)`);
+      if (questionsData.length !== expectedCount) {
+        console.error(`[경고] 문항 수 불일치! 예상: ${expectedCount}, 실제: ${questionsData.length}`);
+      }
+
       setSections(sectionsData);
       setQuestions(questionsData);
 
@@ -434,6 +442,14 @@ export default function SpecialAssessmentPage() {
         specialAssessmentApi.getSections(selectedAssessmentTool.code),
         specialAssessmentApi.getAllQuestions(selectedAssessmentTool.code),
       ]);
+
+      // 디버깅: 문항 수 검증
+      const expectedCount = selectedAssessmentTool.code === 'KPRC_CO_SG_E' ? 164 : 152;
+      console.log(`[검사 시작] ${selectedAssessmentTool.code}: 받은 문항 수 ${questionsData.length}개 (예상: ${expectedCount}개)`);
+      if (questionsData.length !== expectedCount) {
+        console.error(`[경고] 문항 수 불일치! 예상: ${expectedCount}, 실제: ${questionsData.length}`);
+      }
+
       setSections(sectionsData);
       setQuestions(questionsData);
 
@@ -718,10 +734,17 @@ export default function SpecialAssessmentPage() {
   const getProgress = useCallback(() => {
     const total = questions.length;
     const answered = Object.keys(answers).length;
+    const percentage = total > 0 ? Math.round((answered / total) * 100) : 0;
+
+    // 디버깅: 진행률이 이상할 때 로그
+    if (total > 0 && answered > 0 && percentage < 100 && answered >= 164) {
+      console.warn(`[진행률 이상] total=${total}, answered=${answered}, percentage=${percentage}%`);
+    }
+
     return {
       total,
       answered,
-      percentage: total > 0 ? Math.round((answered / total) * 100) : 0,
+      percentage,
     };
   }, [questions, answers]);
 
