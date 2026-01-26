@@ -93,6 +93,8 @@ export interface SpecialChildInfo {
   age: number;
   gender: string;
   grade: number | null;
+  has_completed_kprc_tg?: boolean;
+  has_completed_kprc_sg?: boolean;
 }
 
 export interface SpecialChildListResponse {
