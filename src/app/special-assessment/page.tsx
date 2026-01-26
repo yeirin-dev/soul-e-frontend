@@ -1429,9 +1429,39 @@ export default function SpecialAssessmentPage() {
   // 자가보고형은 아동 친화적 UI 사용
   const isSelfReportType = selectedAssessmentTool?.code === 'KPRC_CO_SG_E';
 
-  // 자가보고형 testing phase는 별도 전체 화면 UI 사용
-  if (phase === 'testing' && isSelfReportType) {
-    return renderSelfReportTestingSection();
+  // 자가보고형 - 전체 화면 UI 사용하는 단계들
+  if (isSelfReportType) {
+    // testing phase
+    if (phase === 'testing') {
+      return renderSelfReportTestingSection();
+    }
+
+    // intro phase
+    if (phase === 'intro') {
+      return (
+        <div className={cx('assessmentPage')}>
+          {renderIntroSection()}
+        </div>
+      );
+    }
+
+    // submitting phase
+    if (phase === 'submitting') {
+      return (
+        <div className={cx('assessmentPage')}>
+          {renderSubmittingSection()}
+        </div>
+      );
+    }
+
+    // result phase
+    if (phase === 'result') {
+      return (
+        <div className={cx('assessmentPage')}>
+          {renderResultSection()}
+        </div>
+      );
+    }
   }
 
   return (
@@ -1443,7 +1473,7 @@ export default function SpecialAssessmentPage() {
         {phase === 'assessment-select' && renderAssessmentSelectSection()}
         {phase === 'children' && renderChildrenSection()}
         {phase === 'intro' && renderIntroSection()}
-        {phase === 'testing' && !isSelfReportType && renderTestingSection()}
+        {phase === 'testing' && renderTestingSection()}
         {phase === 'submitting' && renderSubmittingSection()}
         {phase === 'result' && renderResultSection()}
         {phase === 'error' && renderErrorSection()}
