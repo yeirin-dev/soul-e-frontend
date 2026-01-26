@@ -31,7 +31,7 @@ import type {
 
 import { SOUL_API_BASE, TokenManager } from './clients';
 
-const API_PREFIX = '/api/v1/special-assessment';
+const API_PREFIX = '/special-assessment';
 
 // =============================================================================
 // Special Access Token 관리
