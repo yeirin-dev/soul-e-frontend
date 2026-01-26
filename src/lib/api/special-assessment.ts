@@ -292,6 +292,22 @@ export const specialAssessmentApi = {
     return response.data;
   },
 
+  /**
+   * 아동별 검사 세션 목록 조회
+   * 세션 재개 기능에서 사용
+   */
+  getSessionsByChild: async (
+    childId: string,
+    assessmentType?: string,
+    limit: number = 10
+  ): Promise<AssessmentSession[]> => {
+    const response = await specialClient.get<AssessmentSession[]>(
+      `${API_PREFIX}/children/${childId}/sessions`,
+      { params: { assessment_type: assessmentType, limit } }
+    );
+    return response.data;
+  },
+
   // ==========================================================================
   // 유틸리티
   // ==========================================================================

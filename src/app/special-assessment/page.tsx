@@ -111,6 +111,11 @@ export default function SpecialAssessmentPage() {
   // 세션 복구 중 로딩 상태
   const [isRestoringSession, setIsRestoringSession] = useState(true);
 
+  // 세션 재개 관련
+  const [existingSessions, setExistingSessions] = useState<AssessmentSession[]>([]);
+  const [showResumeModal, setShowResumeModal] = useState(false);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+
   // ==========================================================================
   // 구/군 목록 로드
   // ==========================================================================
@@ -308,8 +313,113 @@ export default function SpecialAssessmentPage() {
   // 아동 선택 및 검사 시작 (연령 검증 우회)
   // ==========================================================================
 
-  const handleChildSelect = (child: SpecialChildInfo) => {
+  const handleChildSelect = async (child: SpecialChildInfo) => {
     setSelectedChild(child);
+
+    // 기존 미완료 세션 확인
+    if (!selectedAssessmentTool) return;
+
+    setSessionsLoading(true);
+    try {
+      const sessions = await specialAssessmentApi.getSessionsByChild(
+        child.id,
+        selectedAssessmentTool.code
+      );
+      // 미완료 세션만 필터링 (CREATED 또는 IN_PROGRESS)
+      const incompleteSessions = sessions.filter(
+        (s) => s.status === 'CREATED' || s.status === 'IN_PROGRESS'
+      );
+
+      if (incompleteSessions.length > 0) {
+        setExistingSessions(incompleteSessions);
+        setShowResumeModal(true);
+      }
+    } catch (err) {
+      console.error('세션 이력 조회 실패:', err);
+      // 실패해도 진행 가능
+    } finally {
+      setSessionsLoading(false);
+    }
+  };
+
+  /**
+   * 기존 세션 재개
+   */
+  const handleResumeSession = async (sessionToResume: AssessmentSession) => {
+    if (!selectedAssessmentTool) return;
+
+    setShowResumeModal(false);
+    setChildrenLoading(true);
+    setError(null);
+
+    try {
+      // 섹션 및 문항 정보 로드
+      const [sectionsData, questionsData] = await Promise.all([
+        specialAssessmentApi.getSections(selectedAssessmentTool.code),
+        specialAssessmentApi.getAllQuestions(selectedAssessmentTool.code),
+      ]);
+      setSections(sectionsData);
+      setQuestions(questionsData);
+
+      // 기존 세션 설정
+      setSession(sessionToResume);
+
+      // 저장된 답변 복원
+      if (sessionToResume.answered_count > 0) {
+        try {
+          const savedAnswers = await specialAssessmentApi.getSessionAnswers(
+            sessionToResume.session_id
+          );
+          setAnswers(savedAnswers.answers);
+          answersRef.current = savedAnswers.answers;
+
+          // 마지막으로 응답한 섹션/문항으로 이동
+          if (savedAnswers.last_answered_question) {
+            // 자가보고형의 경우 currentQuestionIndex 설정
+            if (selectedAssessmentTool.code === 'KPRC_CO_SG_E') {
+              setCurrentQuestionIndex(savedAnswers.last_answered_question - 1);
+            } else {
+              // 교사평정형의 경우 섹션으로 이동
+              const lastSection = sectionsData.find(
+                (s) =>
+                  savedAnswers.last_answered_question! >= s.start_question &&
+                  savedAnswers.last_answered_question! <= s.end_question
+              );
+              if (lastSection) {
+                setCurrentSection(lastSection.section_number);
+              }
+            }
+          }
+        } catch {
+          // 답변 복원 실패해도 진행
+        }
+      }
+
+      setPhase('intro');
+    } catch (err: any) {
+      console.error('세션 재개 실패:', err);
+      setError(err.response?.data?.detail || '검사를 재개하는데 실패했습니다.');
+    } finally {
+      setChildrenLoading(false);
+    }
+  };
+
+  /**
+   * 새 검사 시작 (모달에서 '새로 시작' 선택 시)
+   */
+  const handleStartNewAssessment = () => {
+    setShowResumeModal(false);
+    setExistingSessions([]);
+    handleStartAssessment();
+  };
+
+  /**
+   * 모달 닫기 (선택하지 않고 닫을 때)
+   */
+  const handleCloseModal = () => {
+    setShowResumeModal(false);
+    setExistingSessions([]);
+    setSelectedChild(null);
   };
 
   const handleStartAssessment = async () => {
@@ -1411,6 +1521,101 @@ export default function SpecialAssessmentPage() {
     </section>
   );
 
+  // ==========================================================================
+  // 세션 재개 모달
+  // ==========================================================================
+
+  const renderResumeModal = () => {
+    if (!showResumeModal || existingSessions.length === 0) return null;
+
+    const latestSession = existingSessions[0];
+    const progressPercent =
+      latestSession.total_questions > 0
+        ? Math.round((latestSession.answered_count / latestSession.total_questions) * 100)
+        : 0;
+
+    const formatDate = (dateStr: string) => {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    };
+
+    return (
+      <div className={styles.modalOverlay} onClick={handleCloseModal}>
+        <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+          <div className={styles.modalHeader}>
+            <h3>진행 중인 검사가 있습니다</h3>
+            <button
+              type="button"
+              className={styles.modalClose}
+              onClick={handleCloseModal}
+              aria-label="닫기"
+            >
+              ×
+            </button>
+          </div>
+
+          <div className={styles.modalBody}>
+            <div className={styles.sessionInfo}>
+              <div className={styles.sessionChild}>
+                <span className={styles.avatar}>{selectedChild?.name.charAt(0)}</span>
+                <div className={styles.sessionChildInfo}>
+                  <strong>{selectedChild?.name}</strong>
+                  <span>{selectedAssessmentTool?.shortName}</span>
+                </div>
+              </div>
+
+              <div className={styles.sessionProgress}>
+                <div className={styles.progressLabel}>
+                  <span>진행률</span>
+                  <span className={styles.progressValue}>{progressPercent}%</span>
+                </div>
+                <div className={styles.progressTrack}>
+                  <div className={styles.progressFill} style={{ width: `${progressPercent}%` }} />
+                </div>
+                <div className={styles.progressDetail}>
+                  {latestSession.answered_count} / {latestSession.total_questions} 문항 응답
+                </div>
+              </div>
+
+              <div className={styles.sessionMeta}>
+                <span>마지막 저장: {formatDate(latestSession.updated_at)}</span>
+              </div>
+            </div>
+
+            <p className={styles.modalDescription}>
+              이전에 진행하던 검사를 이어서 진행하시겠습니까?
+              <br />
+              새로 시작하면 기존 응답이 삭제됩니다.
+            </p>
+          </div>
+
+          <div className={styles.modalActions}>
+            <button
+              type="button"
+              className={styles.primaryButton}
+              onClick={() => handleResumeSession(latestSession)}
+            >
+              이어서 진행
+            </button>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={handleStartNewAssessment}
+            >
+              새로 시작
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // 세션 복구 중 로딩 화면
   if (isRestoringSession) {
     return (
@@ -1478,6 +1683,7 @@ export default function SpecialAssessmentPage() {
         {phase === 'result' && renderResultSection()}
         {phase === 'error' && renderErrorSection()}
       </main>
+      {renderResumeModal()}
     </div>
   );
 }
